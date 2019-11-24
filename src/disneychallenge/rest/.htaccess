@@ -1,0 +1,8 @@
+Options +FollowSymLinks
+RewriteEngine On
+ 
+RewriteCond %{SCRIPT_FILENAME} !-d
+RewriteCond %{SCRIPT_FILENAME} !-f
+ 
+RewriteRule ^name/(\d+)*$ ./index.php?action=get_app&id=$1
+RewriteRule ^home/(\d+)*$ ./index.php?action=get_app_list
