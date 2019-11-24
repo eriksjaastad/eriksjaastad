@@ -9,6 +9,7 @@ import brainCancer from './img/brainCancer.jpg';
 import seaTimesTh from './img/seaTimesTh.jpg';
 import theMartinTh from './img/theMartinTh.jpg';
 import chrisElliottFund from './img/chrisElliottFund.jpg';
+import Erik_Sjaastad from "./pdf/Erik_Sjaastad.pdf";
 
 class App extends Component {
   render() {
@@ -18,7 +19,7 @@ class App extends Component {
           <nav>
             <ul className="group" role="navigation">
                 <li><a href="#projects">Projects</a></li>
-                <li><a href="Erik_Sjaastad.pdf">Resume</a></li>
+                <li><a href={Erik_Sjaastad} rel="noopener noreferrer" target="_blank">Resume</a></li>
                 <li><a href="#contact">Contact</a></li>
               </ul>
           </nav>
