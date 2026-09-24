@@ -26,3 +26,5 @@ yarn-error.log*
 # Session state, not source (portfolio rule: never commit PROGRESS.md)
 PROGRESS.md
 /.claude/
+.vercel
+.env*.local
