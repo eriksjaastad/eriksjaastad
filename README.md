@@ -1,10 +1,11 @@
 # Erik Sjaastad
-### Systems Architecture & AI Automation Engineer
 
-#### **Track Record & Background**
-* **20+ Years Enterprise & Contract Engineering:** Delivered full-stack web applications, media streaming architecture, and backend systems for major enterprise environments (including Redfin, enterprise media streaming, and digital news platforms).
-* **Private Codebases & Infrastructure:** Work performed primarily within private client organizations, enterprise Git servers, and proprietary internal codebases.
+I love programming. Most of what's here started as a tool I wanted for my own work and kept growing.
 
-#### **Current Focus (2025 – Present)**
-* **AI Tooling & Orchestration:** Building multi-agent workflows, automated execution pipelines, and local LLM tooling.
-* **Python & System Automation:** Developing custom scripts, data pipelines, and CLI integrations.
+These days that's mostly AI tooling:
+- an AI chat client for running agent sessions
+- a dashboard that tracks my projects, tasks and agents
+- a macOS speech-to-text menubar app
+- image tools for picking and cropping the best shots from big batches
+- Chrome extensions and small Python utilities
+- multi-agent workflows where models review each other's code
