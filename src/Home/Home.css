@@ -1,0 +1,130 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Press+Start+2P&family=Silkscreen&family=VT323&display=swap");
+
+/* Layout: one CRT on a desk at night; a year-thermometer under it uncovers each decade's heckle, then the room opens into the homepage. */
+:root {
+  --room: #15161b;
+  --room-2: #1e2027;
+  --ink: #ece7dc;
+  --ink-dim: #9a968d;
+  --coral: #ff8a65;
+  --amber: #ffc46b;
+  --line: #2e3039;
+  --neon: #ff6a00;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --ti: "Press Start 2P", ui-monospace, monospace;
+  --mac: "VT323", ui-monospace, monospace;
+  --flash: "Silkscreen", ui-monospace, monospace;
+}
+html, body { height: 100%; }
+body.home {
+  color-scheme: dark;
+  box-sizing: border-box;
+  margin: 0;
+  background: radial-gradient(120% 80% at 50% 0%, var(--room-2), var(--room) 60%);
+  background-color: var(--room);
+  color: var(--ink);
+  font: 16px/1.55 var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 40px;
+  overflow-x: hidden;
+}
+body.home * { box-sizing: border-box; }
+body.home [hidden] { display: none !important; }
+body.home button { font: inherit; color: inherit; cursor: pointer; }
+body.home :focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; }
+
+/* ---------- intro ---------- */
+#intro { max-width: 620px; margin: 0 auto; display: grid; gap: 22px; }
+.bezel {
+  border-radius: 26px; padding: 22px 22px 30px;
+  background: #3b2a1f; /* wood-grain TV in 1983, swapped per era */
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 30px 60px rgba(0,0,0,.45);
+  transition: background .5s, border-radius .5s;
+  position: relative;
+}
+.bezel::after { /* power LED */
+  content: ""; position: absolute; right: 26px; bottom: 11px; width: 7px; height: 7px; border-radius: 50%;
+  background: #ff5a3c; box-shadow: 0 0 8px #ff5a3c;
+}
+.screen {
+  aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px / 22px; overflow: hidden;
+  position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center;
+  transition: background .4s, color .4s;
+}
+.screen canvas { width: min(46%, 220px); aspect-ratio: 1; align-self: center; image-rendering: pixelated; }
+.chrome { width: 100%; min-height: 18px; }
+.msg { min-height: 3.4em; padding: 0 18px 18px; text-align: center; text-wrap: balance; display: grid; place-items: center; }
+.scan::before { /* CRT scanlines, early eras only */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px);
+}
+
+/* era: 1983 TI-99/4A on the family TV */
+.e0 .bezel { background: linear-gradient(135deg, #4a3322, #2f1f15); }
+.e0 .screen { background: #5ed0d8; color: #101018; font: 12px/1.9 var(--ti); text-transform: uppercase; }
+.e0 .chrome { height: 18px; background: linear-gradient(90deg,#000 0 12.5%,#2cbb3c 0 25%,#5edc74 0 37.5%,#5455ed 0 50%,#d4524d 0 62.5%,#42ebf5 0 75%,#fd5554 0 87.5%,#fff 0); }
+/* era: 1992 Macintosh Classic */
+.e1 .bezel { background: #d8d1bf; border-radius: 14px; }
+.e1 .bezel::after { background: #6c9a5b; box-shadow: none; }
+.e1 .screen { background: #fff; color: #000; font: 26px/1.1 var(--mac); border-radius: 6px; }
+.e1 .chrome { border-bottom: 2px solid #000; font: 20px/1 var(--mac); padding: 3px 10px; text-align: left; }
+/* era: 1996 dial-up */
+.e2 .bezel { background: #cfc8b4; border-radius: 12px; }
+.e2 .screen { background: #008080; color: #000; font: 13px/1.4 Verdana, Tahoma, sans-serif; border-radius: 6px; }
+.e2 .chrome { background: #000080; color: #fff; font: bold 12px/1 Verdana, sans-serif; padding: 4px 8px; text-align: left; }
+.e2 .msg span { background: #c0c0c0; padding: 8px 12px; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+/* era: 2003 Flash intro */
+.e3 .bezel { background: linear-gradient(#5a5d66, #26282e); border-radius: 18px; }
+.e3 .screen { background: radial-gradient(circle at 50% 40%, #2b2f38, #050507 70%); color: #ffb067; font: 14px/1.5 var(--flash); letter-spacing: .06em; }
+.e3 .screen canvas { filter: drop-shadow(0 0 14px rgba(255,138,40,.65)); }
+/* era: 2026 */
+.e4 .bezel { background: #22242b; border-radius: 30px; }
+.e4 .bezel::after { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.e4 .screen { background: radial-gradient(circle at 50% 35%, #2c2a3a, #141419 75%); color: var(--ink); font: 500 17px/1.4 var(--display); border-radius: 18px; }
+.e4 .screen canvas { image-rendering: auto; }
+.thinking { background: linear-gradient(90deg, var(--ink-dim) 30%, #fff 50%, var(--ink-dim) 70%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* thermometer */
+.meter { display: grid; gap: 10px; }
+.meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); letter-spacing: .08em; text-transform: uppercase; }
+#year { font: 800 clamp(34px, 8vw, 52px)/1 var(--display); color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.track { position: relative; height: 16px; border-radius: 999px; background: var(--room); border: 1px solid var(--line); overflow: hidden; }
+#fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, #5ed0d8 0 20%, #f2efe6 20% 40%, #3a6ea5 40% 60%, #ff8a28 60% 80%, var(--coral) 80%); background-size: var(--full, 100%) 100%; }
+.ticks, .heckles { display: grid; grid-template-columns: repeat(5, 1fr); font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.ticks span { border-left: 1px solid var(--line); padding-left: 6px; }
+.heckles { position: relative; font-size: 12px; color: var(--ink); line-height: 1.35; }
+.heckles span { padding: 0 8px 0 6px; min-width: 0; }
+#cover { position: absolute; inset: 0 0 0 auto; width: 100%; background: var(--room); transition: none; }
+.intro-actions { display: flex; justify-content: center; gap: 10px; }
+.ghost { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px; font: 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+body.home .ghost { font: 12px var(--mono); color: var(--ink-dim); }
+.ghost:hover, body.home .ghost:hover { color: var(--neon); border-color: var(--neon); }
+
+/* ---------- homepage ---------- */
+#motes { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+#home { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; display: grid; gap: 40px; padding-block: 2vh 0; }
+.hero { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: clamp(20px, 5vw, 56px); align-items: center; }
+#buddy { width: 100%; max-width: 300px; aspect-ratio: 1; }
+.hero h1 { font: 800 clamp(48px, 9vw, 96px)/.92 var(--display); letter-spacing: -.035em; margin: 0 0 14px; text-wrap: balance; }
+.say { font: 14px var(--mono); color: var(--amber); margin: 0 0 18px; }
+.hero p { max-width: 52ch; color: var(--ink); margin: 0; font-size: 18px; }
+.paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.path { display: grid; gap: 4px; text-decoration: none; color: var(--ink); padding: 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, transform .2s; }
+.path:hover { border-color: var(--neon); transform: translateY(-2px); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.35); }
+.path:hover b { color: var(--neon); text-shadow: 0 0 12px rgba(255,106,0,.55); }
+.path b { font-size: 20px; font-weight: 600; }
+.path small { color: var(--ink-dim); font: 12px var(--mono); }
+.timeline { border-top: 1px solid var(--line); padding-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; font: 12px/1.5 var(--mono); color: var(--ink-dim); }
+.timeline b { display: block; color: var(--ink); font-weight: 500; }
+.foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font: 12px var(--mono); color: var(--ink-dim); }
+@media (max-width: 640px) {
+  .hero { grid-template-columns: 1fr; justify-items: start; }
+  #buddy { max-width: 180px; }
+  .ticks, .heckles { font-size: 10px; }
+  .e0 .screen { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .thinking { animation: none; color: var(--ink); } .path { transition: none; } }
