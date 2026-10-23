@@ -206,13 +206,50 @@ export function mount() {
     }
   }
 
+  // The intro plays once per browser; Replay still runs it on demand.
+  function seenIntro() { try { return localStorage.getItem("introSeen") === "1"; } catch { return false; } }
+
   function finish() {
+    try { localStorage.setItem("introSeen", "1"); } catch { /* private mode: intro plays again next visit */ }
     cancelAnimationFrame(raf);
     pausedAt = null; $("pause").textContent = "Pause";
     intro.hidden = true; home.hidden = false; mc.hidden = reduce;
     if (!reduce) seedMotes();
     raf = requestAnimationFrame(homeLoop);
+    preloadMemory();
   }
+
+  // The memory graph waits, dark, in an iframe behind the homepage. Its card pushes the homepage
+  // into the distance while the graph flies in; pushState changes the URL without a page load,
+  // and Back (or the graph's Home button) brings the homepage forward again.
+  let frameEl = null, frameReady = false, inMemory = false;
+  function post(msg) { frameEl.contentWindow.postMessage(msg, location.origin); }
+  function preloadMemory() {
+    if (frameEl) return;
+    frameEl = document.createElement("iframe");
+    frameEl.id = "memory"; frameEl.src = "/memory/"; frameEl.title = "Inside the memory"; frameEl.tabIndex = -1; frameEl.inert = true;
+    frameEl.addEventListener("load", () => { frameReady = true; if (inMemory) post("enter"); });
+    document.body.append(frameEl);
+  }
+  function enterMemory() {
+    preloadMemory();
+    inMemory = true; document.body.classList.add("away");
+    home.inert = true; frameEl.inert = false; frameEl.focus(); // only one page is live at a time
+    if (frameReady) post("enter");
+  }
+  function leaveMemory() {
+    inMemory = false; document.body.classList.remove("away");
+    home.inert = false; frameEl.inert = true; $("memoryLink").focus({ preventScroll: true });
+    if (frameReady) post("reset");
+  }
+  function onMemoryClick(ev) {
+    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return; // new tab still works
+    ev.preventDefault();
+    history.pushState(null, "", "/memory/");
+    enterMemory();
+  }
+  function onPop() { location.pathname === "/memory/" ? enterMemory() : frameEl && leaveMemory(); }
+  function onMessage(ev) { if (inMemory && ev.origin === location.origin && ev.data === "home") { inMemory = false; history.back(); } }
 
   function run() {
     cancelAnimationFrame(raf);
@@ -239,18 +276,26 @@ export function mount() {
   }
 
   addEventListener("pointermove", onPointer);
+  addEventListener("popstate", onPop);
+  addEventListener("message", onMessage);
+  $("memoryLink").addEventListener("click", onMemoryClick);
   addEventListener("resize", onResize);
   addEventListener("keydown", onKey);
   $("skip").addEventListener("click", finish);
   $("pause").addEventListener("click", togglePause);
   $("replay").addEventListener("click", run);
 
-  reduce ? finish() : run();
+  reduce || seenIntro() ? finish() : run();
 
   return () => {
     cancelAnimationFrame(raf);
     removeEventListener("pointermove", onPointer);
     removeEventListener("resize", onResize);
     removeEventListener("keydown", onKey);
+    removeEventListener("popstate", onPop);
+    removeEventListener("message", onMessage);
+    $("memoryLink").removeEventListener("click", onMemoryClick);
+    document.body.classList.remove("away");
+    if (frameEl) frameEl.remove();
   };
 }

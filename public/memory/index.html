@@ -28,22 +28,6 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--d
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 
-/* the "homepage" that gets pushed away */
-#home { position: fixed; inset: 0; display: grid; place-items: center; z-index: 5;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  transition: transform 1.5s cubic-bezier(.55,0,.2,1), opacity 1.3s ease-in, filter 1.3s ease-in; transform-origin: 50% 45%; }
-#home.away { transform: scale(.06); opacity: 0; filter: blur(6px); pointer-events: none; visibility: hidden; transition: transform 1.5s cubic-bezier(.55,0,.2,1), opacity 1.3s ease-in, filter 1.3s ease-in, visibility 0s 1.5s; }
-.home-inner { width: min(640px, 100%); display: grid; gap: 28px; }
-.home-inner h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); font-weight: 800; letter-spacing: -.02em; line-height: 1; margin: 0; text-wrap: balance; }
-.home-inner p { margin: 0; color: var(--muted); font-size: 1.05rem; line-height: 1.5; max-width: 52ch; }
-.paths { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.path { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; transition: border-color .2s, box-shadow .2s; }
-.path b { font-size: 1.05rem; }
-.path span { color: var(--muted); font-size: .85rem; line-height: 1.35; }
-.path.live { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px -6px var(--neon); animation: pulse 2.4s ease-in-out infinite; }
-.path:not(.live) { opacity: .55; cursor: default; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 1px var(--neon), 0 0 40px -2px var(--neon); } }
-.home-note { font-family: var(--mono); font-size: .72rem; color: var(--muted); letter-spacing: .04em; }
 
 /* floating chrome */
 .chrome { position: fixed; z-index: 4; opacity: 0; transition: opacity .8s; pointer-events: none; }
@@ -115,25 +99,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
   .desk { display: none; }
 }
 @media (min-width: 721px) { .phone { display: none; } }
-@media (prefers-reduced-motion: reduce) { #home, .chrome, #card { transition: none; } .path.live { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .chrome, #card { transition: none; } }
 </style>
 
 <div id="stage"></div>
 <div id="labels"></div>
 <div id="tip"></div>
 
-<section id="home" aria-label="Pick a door">
-  <div class="home-inner">
-    <h1>Hi, I'm Erik.</h1>
-    <p>I build things with AI, mostly for myself first. Pick a door.</p>
-    <div class="paths">
-      <button class="path live" id="enter" type="button"><b>What I build</b><span>Fly into the memory my AI agents share.</span></button>
-      <div class="path" aria-disabled="true"><b>Who I am</b><span>The room. Coming later.</span></div>
-      <div class="path" aria-disabled="true"><b>The archive</b><span>The chest in the corner.</span></div>
-    </div>
-    <div class="home-note">Click "What I build", or wait.</div>
-  </div>
-</section>
 
 <header id="topbar" class="chrome">
   <div class="title">
@@ -141,7 +113,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
     <small id="sub"></small>
   </div>
   <div class="btns">
-    <a class="pill" href="/">Home</a>
+    <a class="pill" id="homeLink" href="/">Home</a>
     <button class="pill" id="toggleList" type="button">Projects</button>
     <button class="pill" id="overview" type="button">Zoom out</button>
     <button class="pill" id="replay" type="button">Replay entrance</button>
@@ -233,7 +205,7 @@ document.getElementById("legend").innerHTML = ["project", "concept", "decision",
 const stage = document.getElementById("stage");
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" }); }
-catch (e) { document.getElementById("home").hidden = true; document.body.insertAdjacentHTML("beforeend", `<div id="fail">This needs WebGL, and the browser refused it: ${e.message}</div>`); throw e; }
+catch (e) { document.body.insertAdjacentHTML("beforeend", `<div id="fail">This needs WebGL, and the browser refused it: ${e.message}</div>`); throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x151417, 1);
@@ -358,9 +330,6 @@ function writePositions() {
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function startEntrance() {
   closeCard(true);
-  const home = document.getElementById("home");
-  home.classList.add("away");
-  setTimeout(() => { if (home.classList.contains("away")) home.hidden = true; }, reduced ? 0 : 1600);
   camera.position.copy(HOME_CAM); controls.target.set(0, 0, 0);
   if (reduced) { cur.set(pos); writePositions(); lineMat.opacity = LINE_OPACITY; finishEntrance(); return; }
   seedStart(); cur.set(start); writePositions(); lineMat.opacity = 0;
@@ -369,13 +338,10 @@ function startEntrance() {
 function finishEntrance() {
   entrance = null; controls.enabled = true; document.body.classList.add("ready");
 }
-function resetToHome() {
-  document.body.classList.remove("ready"); controls.enabled = false;
+function resetEntrance() {
+  document.body.classList.remove("ready"); controls.enabled = false; entrance = null; flight = null;
   closeCard(true);
-  const home = document.getElementById("home");
-  home.hidden = false; home.style.transition = "none"; home.classList.remove("away"); void home.offsetWidth; home.style.transition = "";
   seedStart(); cur.set(start); writePositions(); lineMat.opacity = 0;
-  armAuto();
 }
 
 // ---------- labels ----------
@@ -498,7 +464,7 @@ document.getElementById("cClose").onclick = () => closeCard();
 document.getElementById("cPrev").onclick = () => step(-1);
 document.getElementById("cNext").onclick = () => step(1);
 document.getElementById("overview").onclick = () => { closeCard(true); flyCam(HOME_CAM.clone(), new THREE.Vector3()); };
-document.getElementById("replay").onclick = () => { resetToHome(); };
+document.getElementById("replay").onclick = () => { resetEntrance(); startEntrance(); };
 const list = document.getElementById("list");
 list.innerHTML = projIdx.map(i => `<button type="button" data-i="${i}">${name[i]}</button>`).join("");
 list.addEventListener("click", ev => { const b = ev.target.closest("button"); if (b) { openCard(+b.dataset.i); if (innerWidth < 720) list.hidden = true; } });
@@ -516,10 +482,21 @@ addEventListener("keydown", ev => {
 let idleTimer = null;
 function stopAuto() { controls.autoRotate = false; clearTimeout(idleTimer); idleTimer = setTimeout(() => { if (selected == null) controls.autoRotate = true; }, 9000); }
 
-// auto-enter if nobody clicks
-let autoTimer = null;
-function armAuto() { clearTimeout(autoTimer); autoTimer = setTimeout(startEntrance, 3200); }
-document.getElementById("enter").onclick = () => { clearTimeout(autoTimer); startEntrance(); };
+// Embedded behind the homepage: stay dark until it says "enter", and hand "Home" back to it
+// so the homepage can return without a page load. Opened directly, fly in at once.
+const embedded = parent !== window;
+let live = !embedded;
+if (embedded) {
+  addEventListener("message", ev => {
+    if (ev.origin !== location.origin) return;
+    if (ev.data === "enter") { live = true; resetEntrance(); startEntrance(); }
+    if (ev.data === "reset") { live = false; resetEntrance(); }
+  });
+  document.getElementById("homeLink").onclick = ev => {
+    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return; // new tab still works
+    ev.preventDefault(); parent.postMessage("home", location.origin);
+  };
+}
 
 // ---------- loop ----------
 addEventListener("resize", () => {
@@ -528,6 +505,7 @@ addEventListener("resize", () => {
 });
 let last = performance.now() / 1000;
 function frame() {
+  if (!live) { requestAnimationFrame(frame); return; }
   const now = performance.now() / 1000, dt = Math.min(0.05, now - last); last = now;
   if (entrance) {
     const t = now - entrance.t0;
@@ -567,6 +545,6 @@ function frame() {
   requestAnimationFrame(frame);
 }
 seedStart(); cur.set(start); writePositions();
-armAuto();
+if (live) startEntrance();
 requestAnimationFrame(frame);
 </script>
