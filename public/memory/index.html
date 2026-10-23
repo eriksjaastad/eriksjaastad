@@ -88,14 +88,16 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
 #fail { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--muted); }
 
 @media (max-width: 720px) {
-  .paths { grid-template-columns: 1fr; }
-  #list { width: auto; right: max(16px, env(safe-area-inset-right, 0px)); max-height: 45%; }
+  /* No panel on phones: the graph stays visible behind the names, and touches between them reach it. */
+  /* top and max-height are set by placeList() from the wrapped button bar and the viewport. */
+  #list { width: auto; box-sizing: border-box; background: none; border: 0; backdrop-filter: none; pointer-events: none; }
+  #list button { color: var(--ink); text-shadow: 0 0 6px #000, 0 1px 2px #000; }
+  .ready #list button { pointer-events: auto; }
   #card { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); width: auto; max-height: 55%; transform: translateY(24px); }
   #legend { display: none; }
   #hint { left: max(16px, env(safe-area-inset-left, 0px)); text-align: left; }
   #topbar { flex-direction: column; }
   .btns { justify-content: flex-start; }
-  #list { top: calc(120px + env(safe-area-inset-top, 0px)); }
   .desk { display: none; }
 }
 @media (min-width: 721px) { .phone { display: none; } }
@@ -472,6 +474,17 @@ list.addEventListener("mouseover", ev => { const b = ev.target.closest("button")
 list.addEventListener("mouseleave", () => { hoverNode = null; setHighlight(selected); });
 document.getElementById("toggleList").onclick = () => { list.hidden = !list.hidden; };
 if (innerWidth >= 720) list.hidden = false;
+// Phones: the list floats just under the button bar, which wraps to as many rows as the width needs,
+// and stops above the hint line at the bottom.
+const topbar = document.getElementById("topbar"), phone = matchMedia("(max-width: 720px)");
+function placeList() {
+  if (!phone.matches) { list.style.top = list.style.maxHeight = ""; return; }
+  const top = topbar.getBoundingClientRect().bottom + 8;
+  list.style.top = top + "px";
+  list.style.maxHeight = Math.max(0, innerHeight - top - 48) + "px";
+}
+placeList();
+document.fonts.ready.then(placeList);
 addEventListener("keydown", ev => {
   if (ev.key === "Escape") closeCard();
   if (selected != null && ev.key === "ArrowRight") step(1);
@@ -500,6 +513,7 @@ if (embedded) {
 
 // ---------- loop ----------
 addEventListener("resize", () => {
+  placeList();
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
 });
