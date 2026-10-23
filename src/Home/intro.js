@@ -233,7 +233,8 @@ export function mount() {
   function onResize() { if (!mc.hidden) seedMotes(); }
   function onKey(ev) {
     if (intro.hidden) return;
-    if (ev.key === " ") { ev.preventDefault(); if (document.activeElement !== $("pause")) togglePause(); return; }
+    if ((ev.key === " " || ev.key === "Enter") && ev.target.closest("button")) return; // the button activates itself
+    if (ev.key === " ") { ev.preventDefault(); togglePause(); return; }
     if (era === 0 && pausedAt === null && ev.key.length === 1) finish(); // PRESS ANY KEY really works
   }
 

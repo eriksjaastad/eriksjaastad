@@ -151,7 +151,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
 <div id="legend" class="chrome"></div>
 <div id="hint" class="chrome"><span class="desk">drag to look around · scroll to zoom<br>right-drag to slide · click a bright node</span><span class="phone">drag to turn · pinch to zoom · tap a bright node</span></div>
 
-<aside id="card" aria-live="polite">
+<aside id="card" aria-live="polite" inert>
   <div class="eyebrow"><span class="status" id="cStatus"></span><button class="x" id="cClose" type="button" aria-label="Close">×</button></div>
   <h3 id="cName"></h3>
   <p id="cBlurb"></p>
@@ -233,7 +233,7 @@ document.getElementById("legend").innerHTML = ["project", "concept", "decision",
 const stage = document.getElementById("stage");
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" }); }
-catch (e) { document.body.insertAdjacentHTML("beforeend", `<div id="fail">This needs WebGL, and the browser refused it: ${e.message}</div>`); throw e; }
+catch (e) { document.getElementById("home").hidden = true; document.body.insertAdjacentHTML("beforeend", `<div id="fail">This needs WebGL, and the browser refused it: ${e.message}</div>`); throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x151417, 1);
@@ -433,8 +433,16 @@ function setHighlight(i) {
 }
 const canvas = renderer.domElement;
 canvas.addEventListener("pointermove", ev => { pointer = ev; });
-canvas.addEventListener("pointerdown", ev => { downAt = [ev.clientX, ev.clientY]; stopAuto(); });
+const downIds = new Set();
+let multi = false;
+canvas.addEventListener("pointerdown", ev => {
+  if (!downIds.size) multi = false;
+  downIds.add(ev.pointerId); multi = multi || downIds.size > 1;
+  downAt = [ev.clientX, ev.clientY]; stopAuto();
+});
+for (const t of ["pointerup", "pointercancel"]) canvas.addEventListener(t, ev => { downIds.delete(ev.pointerId); });
 canvas.addEventListener("pointerup", ev => {
+  if (multi) { downAt = null; if (!downIds.size) multi = false; return; }
   if (!downAt || !controls.enabled) return;
   const moved = Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]); downAt = null;
   if (moved > 5 || ev.button !== 0) return;
@@ -475,13 +483,13 @@ function openCard(i) {
   const by = {}; nbrs[i].forEach(j => { if (typeOf[j] !== "concept") by[typeOf[j]] = (by[typeOf[j]] || 0) + 1; });
   document.getElementById("cCounts").innerHTML = Object.entries(by).sort((a, b) => b[1] - a[1])
     .map(([t, c]) => `${String(c).padStart(4, " ")} ${c === 1 ? TYPE_STYLE[t].word : FULL_WORD[t]}`).join("<br>") || "none";
-  card.classList.add("on");
+  card.classList.add("on"); card.inert = false;
   document.querySelectorAll("#list button").forEach(b => b.classList.toggle("on", +b.dataset.i === i));
   setHighlight(i); flyTo(i);
 }
 function closeCard(silent) {
   if (selected == null && !silent) return;
-  selected = null; card.classList.remove("on"); setHighlight(hoverNode);
+  selected = null; card.classList.remove("on"); card.inert = true; setHighlight(hoverNode);
   document.querySelectorAll("#list button").forEach(b => b.classList.remove("on"));
   if (!silent) flyCam(HOME_CAM.clone(), new THREE.Vector3());
 }
