@@ -50,7 +50,7 @@ export default function Home() {
           </div>
         </div>
         <nav className="paths" aria-label="Choose a path">
-          <a className="path" href="/memory/"><b>AI tooling →</b><small>fly into the memory my agents share</small></a>
+          <a className="path" id="memoryLink" href="/memory/"><b>Inside my AI's memory →</b><small>fly through 2,600 things my agents remember</small></a>
           <a className="path" href="https://github.com/eriksjaastad?tab=repositories"><b>Things I built →</b><small>menubar speech-to-text, image pickers, Chrome extensions</small></a>
           <a className="path" href="https://github.com/eriksjaastad"><b>GitHub →</b><small>github.com/eriksjaastad</small></a>
         </nav>
