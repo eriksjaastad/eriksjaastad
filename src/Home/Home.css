@@ -121,6 +121,8 @@ body.home .ghost { font: 12px var(--mono); color: var(--ink-dim); }
 .timeline { border-top: 1px solid var(--line); padding-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; font: 12px/1.5 var(--mono); color: var(--ink-dim); }
 .timeline b { display: block; color: var(--ink); font-weight: 500; }
 .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font: 12px var(--mono); color: var(--ink-dim); }
+.foot a { color: inherit; text-underline-offset: 3px; }
+.foot a:hover { color: var(--neon); }
 /* pushed into the distance while the memory graph flies in behind it */
 #memory { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 0; visibility: hidden; transition: visibility 0s 1.5s; }
 body.away #memory { visibility: visible; transition: none; }

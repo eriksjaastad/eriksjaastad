@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15161b">
+<title>Case studies · Erik Sjaastad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Same room as the homepage: dark gray, neon orange on hover. One column of works in progress. */
+:root {
+  color-scheme: dark;
+  --room: #15161b;
+  --room-2: #1e2027;
+  --ink: #ece7dc;
+  --ink-dim: #9a968d;
+  --amber: #ffc46b;
+  --line: #2e3039;
+  --neon: #ff6a00;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh;
+  background: radial-gradient(120% 80% at 50% 0%, var(--room-2), var(--room) 60%);
+  background-color: var(--room);
+  color: var(--ink);
+  font: 17px/1.55 var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+main { max-width: 760px; margin: 0 auto; display: grid; gap: 36px; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; }
+.back { font: 12px var(--mono); color: var(--ink-dim); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+.back:hover { color: var(--neon); }
+h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035em; margin: 18px 0 14px; text-wrap: balance; }
+.lede { margin: 0; max-width: 56ch; color: var(--ink-dim); }
+.list { display: grid; gap: 12px; }
+.study { display: grid; gap: 8px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, box-shadow .2s; }
+.study:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.3); }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
+.study h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
+.status { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.study p { margin: 0; color: var(--ink-dim); max-width: 62ch; }
+.study small { font: 12px var(--mono); color: var(--ink-dim); }
+.study small a { text-underline-offset: 3px; }
+.study small a:hover { color: var(--neon); }
+.foot { font: 12px var(--mono); color: var(--ink-dim); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .study { transition: none; } }
+</style>
+
+<main>
+  <header>
+    <a class="back" href="/">← Home</a>
+    <h1>Case studies</h1>
+    <p class="lede">Write-ups of real work, with what I measured and what I'm still guessing at. These are in progress. Each one goes up in full once its numbers and claims check out.</p>
+  </header>
+
+  <section class="list" aria-label="Case studies in progress">
+    <article class="study">
+      <div class="top"><h2>One agent managing another</h2><span class="status">Draft in review</span></div>
+      <p>An experiment on Holoscape, my macOS terminal app: one AI agent managing the project, and a second agent that was supposed to write the code. What the commit history, pull requests and telemetry show about how that went, including where the records disagree.</p>
+    </article>
+    <article class="study">
+      <div class="top"><h2>Muffin Pan Recipes, run like a client</h2><span class="status">Measuring the baseline</span></div>
+      <p>An SEO engagement on my own recipe site, run with the discipline a paying client would get: scope, a measured baseline, tracked changes, then a re-measure. No result gets claimed without the before number.</p>
+      <small><a href="https://muffinpanrecipes.com">muffinpanrecipes.com</a></small>
+    </article>
+    <article class="study">
+      <div class="top"><h2>Hypocrisy Now, run like a client</h2><span class="status">Measuring the baseline</span></div>
+      <p>The same practice on a larger site: a Next.js research publication with its own API and database. Technical SEO findings, each with what the server actually returned and when.</p>
+      <small><a href="https://hypocrisynowinc.com">hypocrisynowinc.com</a></small>
+    </article>
+  </section>
+
+  <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
+</main>
+</html>

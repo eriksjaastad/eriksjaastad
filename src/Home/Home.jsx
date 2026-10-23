@@ -51,7 +51,7 @@ export default function Home() {
         </div>
         <nav className="paths" aria-label="Choose a path">
           <a className="path" id="memoryLink" href="/memory/"><b>Inside my AI's memory →</b><small>fly through 2,600 things my agents remember</small></a>
-          <a className="path" href="https://github.com/eriksjaastad?tab=repositories"><b>Things I built →</b><small>menubar speech-to-text, image pickers, Chrome extensions</small></a>
+          <a className="path" href="/case-studies/"><b>Case studies →</b><small>agents managing agents, SEO run like client work</small></a>
           <a className="path" href="https://github.com/eriksjaastad"><b>GitHub →</b><small>github.com/eriksjaastad</small></a>
         </nav>
         <div className="timeline" aria-label="Machines">
@@ -60,7 +60,7 @@ export default function Home() {
           <div><b>1990s · Apple IIc</b>Mom's, with the color monitor.</div>
           <div><b>2026 · a lot of agents</b>Still writing tools for myself.</div>
         </div>
-        <div className="foot"><span>eriksjaastad.com · 2026</span><button className="ghost" id="replay">Replay intro</button></div>
+        <div className="foot"><span>eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></span><button className="ghost" id="replay">Replay intro</button></div>
       </section>
     </>
   );
