@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Gallery · Erik Sjaastad</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* One 3D room. Chrome floats in the corners like /memory/. */
+:root {
+  --bg: #151417; --ink: #f3ebe4; --muted: #9a8f88; --neon: #ff6a00; --line: #3a3539;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; }
+#stage { position: fixed; inset: 0; } #stage canvas { display: block; touch-action: none; }
+.chrome { position: fixed; z-index: 2; }
+#title { top: max(16px, env(safe-area-inset-top)); left: 18px; pointer-events: none; }
+#title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
+#home { top: max(14px, env(safe-area-inset-top)); right: 16px; font-size: 14px; color: var(--ink); text-decoration: none; background: rgba(21,20,23,.6); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
+#home:hover { border-color: var(--neon); color: var(--neon); }
+</style>
+<div id="stage"></div>
+<header id="title" class="chrome"><h1>The gallery</h1><p>the room is up · the art is on its way</p></header>
+<a id="home" class="chrome" href="/">Home</a>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+
+// Room: x -6..6, floor y 0, ceiling y 5, entrance z +6, back wall z -10.
+const W = 6, H = 5, FRONT = 6, BACK = -10, EYE = 1.75;
+
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+catch (err) { document.querySelector("#title p").textContent = "this room needs WebGL, which this browser could not start"; throw err; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById("stage").appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#151417");
+scene.fog = new THREE.Fog("#151417", 16, 34);
+scene.add(new THREE.HemisphereLight("#d8d0ff", "#3a2616", 1.1));
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 60);
+camera.position.set(0, EYE, 5); camera.lookAt(0, 1.5, -6);
+// portrait phones: widen the vertical FOV so both side walls stay in view
+function fit() {
+  camera.aspect = innerWidth / innerHeight;
+  const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(42)) / camera.aspect);
+  camera.fov = THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(half), 60, 100);
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+fit();
+addEventListener("resize", fit);
+
+function checker() {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const g = c.getContext("2d");
+  g.fillStyle = "#d8d0c2"; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = "#141418"; g.fillRect(128, 0, 128, 128); g.fillRect(0, 128, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 8); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK),
+  new THREE.MeshStandardMaterial({ map: checker(), roughness: 0.32, metalness: 0.1 }));
+floor.rotation.x = -Math.PI / 2; floor.position.z = (FRONT + BACK) / 2; floor.receiveShadow = true; scene.add(floor);
+
+const wallMat = new THREE.MeshStandardMaterial({ color: "#3a3840", roughness: 0.9 });
+function wall(w, h, x, y, z, ry) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+  m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
+}
+for (const side of [-1, 1]) wall(FRONT - BACK, H, side * W, H / 2, (FRONT + BACK) / 2, -side * Math.PI / 2);
+wall(2 * W, H, 0, H / 2, BACK, 0);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshStandardMaterial({ color: "#121115" }));
+ceil.rotation.x = Math.PI / 2; ceil.position.set(0, H, (FRONT + BACK) / 2); scene.add(ceil);
+// neon baseboard in the site's orange along both side walls
+const glow = new THREE.MeshBasicMaterial({ color: "#ff6a00" });
+for (const x of [-W + 0.01, W - 0.01]) {
+  const s = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, FRONT - BACK), glow); s.position.set(x, 0.02, (FRONT + BACK) / 2); scene.add(s);
+}
+// back wall wash so the far end of the room doesn't fall into black
+const wash = new THREE.SpotLight("#c9b8ff", 30, 20, 0.7, 0.9, 1.2);
+wash.position.set(0, H - 0.2, 0); wash.target.position.set(0, 1.5, BACK); scene.add(wash, wash.target);
+
+renderer.setAnimationLoop(() => renderer.render(scene, camera));
+</script>
+</html>
