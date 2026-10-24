@@ -75,3 +75,18 @@ test("walker: after two fingers become one, the next 1 px move turns 1 px worth"
   assert.ok(Math.abs(w.frame(0).yaw - 0.005) < 1e-12);
 });
 
+
+test("walker: each control moves the view the way it says, and a released key stops", () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  let w = at(); w.wheel(-48, 0, 800); assert.ok(near(w.frame(0).z, -48 * 0.006));         // scroll up walks forward
+  w = at(); w.pointerDown(1, 0, 0, true); w.pointerMove(1, 0, 20);                          // slide-drag down walks forward
+  assert.ok(near(w.frame(0).z, -0.2));
+  w = at(); w.pointerDown(1, 0, 0, true); w.pointerMove(1, 20, 0); assert.ok(near(w.frame(0).x, -0.2));
+  for (const [key, field, sign] of [["ArrowUp", "z", -1], ["ArrowDown", "z", 1], ["ArrowLeft", "x", -1], ["ArrowRight", "x", 1], ["a", "x", -1], ["d", "x", 1]]) {
+    w = at(); w.keyDown({ key }); assert.ok(near(walkFor(w, 50)[field], sign * 2.6 * 0.05), key);
+  }
+  w = at(); w.keyDown({ key: "q" }); assert.ok(near(walkFor(w, 50).yaw, 300 * 0.05 * 0.005));
+  w = at(); w.keyDown({ key: "E" }); assert.ok(near(walkFor(w, 50).yaw, -300 * 0.05 * 0.005));
+  w = at(); w.keyDown({ key: "W" }); const moved = walkFor(w, 50).z; w.keyUp("w");
+  assert.ok(moved < 0 && w.frame(100).z === moved);
+});
