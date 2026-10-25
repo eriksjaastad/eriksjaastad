@@ -52,11 +52,15 @@ test("wheel: a Firefox line notch walks as far as the same pixels; output is bou
 const at = () => walker({ x: 0, z: 0, yaw: 0, pitch: 0 }), walkFor = (w, ms) => { w.frame(0); return w.frame(ms); };
 
 test("walker: any input keeps eye height, no roll, pitch within +-1.45 and floor under you", () => {
-  const ev = fc.tuple(fc.integer({ min: 0, max: 3 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }));
+  const ev = fc.tuple(fc.integer({ min: 0, max: 4 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }));
   fc.assert(fc.property(fc.array(ev, { maxLength: 30 }), events => {
     const w = at();
-    for (const [k, a, b] of events) [() => w.pointerDown(1, a, b, a > 0), () => w.pointerMove(1, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(1)][k]();
-    const p = w.frame(16);
+    let t = 0;  // a frame after every event, so walks to a (possibly unreachable) spot run too
+    for (const [k, a, b] of events) {
+      [() => w.pointerDown(1, a, b, a > 0), () => w.pointerMove(1, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(1), () => w.goTo({ x: a / 90, z: b / 90 }, { x: 0, y: 1, z: -9 })][k]();
+      w.frame(t += 16);
+    }
+    const p = w.frame(t + 16);
     assert.ok(p.y === EYE && p.roll === 0 && Math.abs(p.pitch) <= 1.45 && standable(p.x, p.z, ROOM), JSON.stringify(p));
   }));
 });
@@ -89,4 +93,105 @@ test("walker: each control moves the view the way it says, and a released key st
   w = at(); w.keyDown({ key: "E" }); assert.ok(near(walkFor(w, 50).yaw, -300 * 0.05 * 0.005));
   w = at(); w.keyDown({ key: "W" }); const moved = walkFor(w, 50).z; w.keyUp("w");
   assert.ok(moved < 0 && w.frame(100).z === moved);
+});
+
+// the standing spots and look points the page gives its pieces (index.html piece(...) calls)
+const SPOTS = [
+  ...[2, -2, -6].map(z => [{ x: -3.4, z }, { x: -6, y: 2.05, z }]),
+  ...[2, -2, -6].map(z => [{ x: 2.4, z: z + 0.6 }, { x: 4.7, y: 1.4, z }]),
+  [{ x: 0, z: -6.7 }, { x: 0, y: 1.1, z: -8.4 }], [{ x: -2.6, z: -6.6 }, { x: -4.7, y: 0.5, z: -8.9 }],
+];
+const run = (w, frames, t = 0) => { let p; for (let i = 0; i <= frames; i++) p = w.frame(t + i * 16); return p; };
+const facing = (p, look) => { const d = heading(p.yaw, 1, 0); return Math.hypot(look.x - p.x, look.z - p.z) * Math.hypot(d.dx, d.dz) - (d.dx * (look.x - p.x) + d.dz * (look.z - p.z)); };
+
+test("goTo: from the entrance every piece's spot is reached, facing the piece, and the walk then ends", () => {
+  for (const [stand, look] of SPOTS) {
+    const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(stand, look);
+    const p = run(w, 600);
+    assert.ok(Math.hypot(p.x - stand.x, p.z - stand.z) < 1e-6 && facing(p, look) < 1e-6 && !p.flying, JSON.stringify([stand, p]));
+  }
+});
+
+test("goTo: the head turns the short way round, even after many turns", () => {
+  const w = walker({ x: -3.4, z: 2, yaw: 6 * Math.PI + 1.4, pitch: 0 }); w.goTo({ x: -3.4, z: 2 }, { x: -6, y: 1.75, z: 2 });
+  assert.ok(Math.abs(run(w, 100).yaw - (6 * Math.PI + Math.PI / 2)) < 1e-6);
+});
+
+test("goTo: any input of yours takes over; a zero nudge does not; asking again after an interruption still arrives", () => {
+  const [stand, look] = SPOTS[6];
+  for (const act of [w => w.wheel(-10, 0, 800), w => { w.pointerDown(1, 0, 0, false); w.pointerMove(1, 5, 0); }, w => w.keyDown({ key: "a" })]) {
+    const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(stand, look); run(w, 10);
+    act(w); assert.equal(run(w, 1, 1000).flying, false); w.keyUp("a"); w.pointerUp(1);
+    w.goTo(stand, look); const p = run(w, 600, 2000);
+    assert.ok(Math.hypot(p.x - stand.x, p.z - stand.z) < 1e-6);
+  }
+  const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(stand, look); run(w, 5);
+  w.pointerDown(1, 0, 0, false); w.pointerMove(1, 0, 0); w.wheel(NaN, 0, 800); assert.equal(run(w, 1, 1000).flying, true);
+});
+
+test("goTo: a spot that can't be reached ends the walk on the floor instead of trying forever", () => {
+  const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo({ x: 4.7, z: -2 }, { x: 4.7, y: 1, z: -3 });  // inside a plinth
+  const p = run(w, 2000);
+  assert.ok(!p.flying && standable(p.x, p.z, ROOM), JSON.stringify(p));
+});
+
+const tapAt = (w, moves, up = moves.at(-1) ?? [0, 0]) => { w.pointerDown(1, 0, 0, false, true); for (const [x, y] of moves) w.pointerMove(1, x, y); return w.pointerUp(1, ...up); };
+
+test("tap: one primary pointer that barely moved is a tap; a drag, out-and-back, far release, right-drag, pinch or cancel is not", () => {
+  const w = at();
+  assert.equal(tapAt(w, [[3, 0]]), true);
+  assert.equal(tapAt(w, [[7, 0]]), false);
+  assert.equal(tapAt(w, [[4, 0], [0, 0]]), false);         // 8 px out and back ends where it began
+  assert.equal(tapAt(w, [[2, 0]], [20, 0]), false);        // released 18 px from the last sample
+  assert.equal(tapAt(w, [[2, 0]], [NaN, 0]), true);        // a bad release sample is ignored, not trusted
+  assert.equal(tapAt(w, [[NaN, 0], [50, 0]]), false);      // ...and does not stop later travel counting
+  w.pointerDown(1, 0, 0, true, true); assert.equal(w.pointerUp(1, 0, 0), false);   // right/shift-drag
+  w.pointerDown(1, 0, 0, false, false); assert.equal(w.pointerUp(1, 0, 0), false); // not the main button
+  // pinch: each finger moves only a little, then they lift one at a time
+  for (const second of [false, true]) {
+    w.pointerDown(1, 0, 0, false, true); w.pointerDown(2, 50, 0, false, second); w.pointerMove(1, 3, 0);
+    assert.equal(w.pointerUp(1, 3, 0), false); assert.equal(w.pointerUp(2, 50, 0), false);
+  }
+  w.pointerDown(1, 0, 0, false, true); w.pointerCancel(1); assert.equal(w.pointerUp(1, 0, 0), false);
+  assert.equal(tapAt(w, []), true);  // nothing left over from the gestures above
+});
+
+test("tap: losing focus mid-press does not swallow the next click", () => {
+  const w = at();
+  w.pointerDown(1, 0, 0, false, true); w.blur();  // released outside the window: no pointerup arrives
+  assert.equal(tapAt(w, []), true);
+});
+
+test("tap: any gesture that ever had two pointers down is never a tap", () => {
+  const ev = fc.tuple(fc.constantFrom("down", "down", "up", "up", "move", "cancel"), fc.integer({ min: 1, max: 2 }), fc.integer({ min: -1, max: 1 }));
+  fc.assert(fc.property(fc.array(ev, { maxLength: 12 }), events => {
+    const w = at(), live = new Set();
+    let multi = false;
+    for (const [k, id, x] of events) {
+      if (k === "down") { if (live.has(id)) continue; live.add(id); multi ||= live.size > 1; w.pointerDown(id, x, 0, false, true); }
+      else if (k === "move") w.pointerMove(id, x, 0);
+      else if (!live.has(id)) continue;
+      else if (k === "cancel") { live.delete(id); w.pointerCancel(id); }
+      else { live.delete(id); const tap = w.pointerUp(id, x, 0); if (multi) assert.equal(tap, false); }
+      if (!live.size) multi = false;
+    }
+  }), { numRuns: 500 });  // short, dense sequences: two fingers down then lifted happens often
+});
+
+test("goTo: tapping a movement key between frames still stops the walk", () => {
+  for (const key of ["w", "ArrowLeft", "q"]) {
+    const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(...SPOTS[6]); run(w, 5);
+    w.keyDown({ key }); w.keyUp(key);
+    assert.equal(run(w, 1, 1000).flying, false, key);
+  }
+  const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(...SPOTS[6]); run(w, 5);
+  w.keyDown({ key: "Shift" }); w.keyUp("Shift"); assert.equal(run(w, 1, 1000).flying, true);
+});
+
+test("goTo: the head turns gradually on the way and never tips past +-1.45, even over a piece at your feet", () => {
+  let w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(...SPOTS[0]);
+  const mid = run(w, 10);
+  assert.ok(mid.flying && mid.yaw > 0.01 && mid.yaw < Math.PI / 2 - 0.01, JSON.stringify(mid));
+  w = walker({ x: 0, z: 0, yaw: 0, pitch: 0 }); w.goTo({ x: 0, z: 0 }, { x: 0, y: 0, z: -1e-4 });
+  assert.ok(Math.abs(run(w, 100).pitch) <= 1.45);
 });
