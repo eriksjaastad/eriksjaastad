@@ -51,9 +51,21 @@ export const EYE = 1.75;  // a 6 ft person's eyes; the camera never leaves this 
 // The page's input -> camera pose controller. The page forwards DOM events and applies frame()'s pose.
 export function walker(start, room = ROOM) {
   const me = { ...start }, keys = new Set(), pointers = new Map();
-  let last = null;
-  const move = (forward, right) => { const d = heading(me.yaw, forward, right); Object.assign(me, walk(me, d.dx, d.dz, room)); };
-  const turn = (dx, dy) => { me.yaw += dx * 0.005; me.pitch = Math.min(1.45, Math.max(-1.45, me.pitch + dy * 0.004)); };
+  let last = null, flight = null;
+  // your own walking or turning always takes over from a walk to a piece (a zero-length nudge does not)
+  const move = (forward, right) => { if (!forward && !right) return; flight = null; const d = heading(me.yaw, forward, right); Object.assign(me, walk(me, d.dx, d.dz, room)); };
+  const turn = (dx, dy) => { if (!dx && !dy) return; flight = null; me.yaw += dx * 0.005; me.pitch = Math.min(1.45, Math.max(-1.45, me.pitch + dy * 0.004)); };
+  // one frame of a walk to a piece: feet at 3 m/s and head at 2.5 rad/s, timed to arrive together. The feet go
+  // through walk(), so the route slides round anything in the way; a walk that makes no progress ends.
+  const fly = dt => {
+    const dx = flight.x - me.x, dz = flight.z - me.z, dyaw = flight.yaw - me.yaw, dpitch = flight.pitch - me.pitch;
+    const left = Math.max(Math.hypot(dx, dz) / 3, Math.abs(dyaw) / 2.5, Math.abs(dpitch) / 2.5);  // seconds to go
+    const k = left > dt ? dt / left : 1;
+    const at = walk(me, dx * k, dz * k, room);
+    if (dt > 0 && Math.hypot(dx, dz) > 1e-6 && at.x === me.x && at.z === me.z) { flight = null; return; }
+    Object.assign(me, at); me.yaw += dyaw * k; me.pitch += dpitch * k;
+    if (k === 1) flight = null;
+  };
   const pressed = (a, b) => keys.has(a) || keys.has(b);
   return {
     // drag looks, a sliding drag walks; with two pointers down neither acts, but both stay current
@@ -72,6 +84,12 @@ export function walker(start, room = ROOM) {
     keyDown({ key, metaKey, ctrlKey, altKey }) { if (metaKey || ctrlKey || altKey) keys.clear(); else keys.add(key.toLowerCase()); },
     keyUp(key) { keys.delete(key.toLowerCase()); },
     blur() { keys.clear(); pointers.clear(); },
+    // walk to stand at {x, z} looking at {x, y, z}; calling it again (same piece or another) starts afresh
+    goTo(stand, look) {
+      const yaw = Math.atan2(stand.x - look.x, stand.z - look.z);
+      const pitch = Math.min(1.45, Math.max(-1.45, Math.atan2(look.y - EYE, Math.hypot(look.x - stand.x, look.z - stand.z))));
+      flight = { x: stand.x, z: stand.z, yaw: me.yaw + Math.atan2(Math.sin(yaw - me.yaw), Math.cos(yaw - me.yaw)), pitch };
+    },
     // WASD / arrows walk 2.6 m/s, Q/E turn; dt capped at 50 ms so a frame after a pause can't teleport you
     frame(now) {
       const dt = last === null ? 0 : Math.min(0.05, Math.max(0, now - last) / 1000); last = now;
@@ -79,7 +97,39 @@ export function walker(start, room = ROOM) {
       if (f || r) move(f * 2.6 * dt, r * 2.6 * dt);
       const q = keys.has("q") - keys.has("e");
       if (q) turn(q * 300 * dt, 0);
-      return { x: me.x, y: EYE, z: me.z, pitch: me.pitch, yaw: me.yaw, roll: 0 };
+      if (flight) fly(dt);
+      return { x: me.x, y: EYE, z: me.z, pitch: me.pitch, yaw: me.yaw, roll: 0, flying: !!flight };
+    },
+  };
+}
+
+// Decides whether a whole pointer gesture was a tap: one primary pointer, down and up,
+// moving no more than `slop` px in total. A second finger or a cancel spoils it for good.
+export function tapGesture(slop = 6) {
+  let g = null;
+  return {
+    down(id, x, y, primary) {
+      if (g) { g.ok = false; g.live.add(id); return; }
+      g = { id, x, y, travel: 0, ok: primary, live: new Set([id]) };
+    },
+    move(id, x, y) {
+      if (!g || id !== g.id) return;
+      g.travel += Math.hypot(x - g.x, y - g.y); g.x = x; g.y = y;
+      if (g.travel > slop) g.ok = false;
+    },
+    // true only when the last pointer lifts and the gesture stayed a tap
+    up(id) {
+      if (!g) return false;
+      g.live.delete(id);
+      if (g.live.size) return false;
+      const tap = g.ok && id === g.id;
+      g = null;
+      return tap;
+    },
+    cancel(id) {
+      if (!g) return;
+      g.ok = false; g.live.delete(id);
+      if (!g.live.size) g = null;
     },
   };
 }
