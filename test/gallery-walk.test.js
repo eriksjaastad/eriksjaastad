@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { ROOM, standable, walk, heading, wheelMeters, walker, EYE, tapGesture } from "../public/gallery/walk.js";
+import { ROOM, standable, walk, heading, wheelMeters, walker, EYE } from "../public/gallery/walk.js";
 
 const coord = fc.double({ min: -20, max: 20, noNaN: true });
 const start = fc.tuple(fc.double({ min: ROOM.minX, max: ROOM.maxX, noNaN: true }), fc.double({ min: ROOM.minZ, max: ROOM.maxZ, noNaN: true }))
@@ -135,34 +135,57 @@ test("goTo: a spot that can't be reached ends the walk on the floor instead of t
   assert.ok(!p.flying && standable(p.x, p.z, ROOM), JSON.stringify(p));
 });
 
-test("tap: one primary pointer that barely moved is a tap; a drag, a right-drag, a pinch or a cancel is not", () => {
-  const t = tapGesture();
-  t.down(1, 0, 0, true); t.move(1, 3, 0); assert.equal(t.up(1), true);
-  t.down(1, 0, 0, true); t.move(1, 7, 0); assert.equal(t.up(1), false);
-  t.down(1, 0, 0, false); assert.equal(t.up(1), false);
+const tapAt = (w, moves, up = moves.at(-1) ?? [0, 0]) => { w.pointerDown(1, 0, 0, false, true); for (const [x, y] of moves) w.pointerMove(1, x, y); return w.pointerUp(1, ...up); };
+
+test("tap: one primary pointer that barely moved is a tap; a drag, out-and-back, far release, right-drag, pinch or cancel is not", () => {
+  const w = at();
+  assert.equal(tapAt(w, [[3, 0]]), true);
+  assert.equal(tapAt(w, [[7, 0]]), false);
+  assert.equal(tapAt(w, [[4, 0], [0, 0]]), false);         // 8 px out and back ends where it began
+  assert.equal(tapAt(w, [[2, 0]], [20, 0]), false);        // released 18 px from the last sample
+  assert.equal(tapAt(w, [[2, 0]], [NaN, 0]), true);        // a bad release sample is ignored, not trusted
+  assert.equal(tapAt(w, [[NaN, 0], [50, 0]]), false);      // ...and does not stop later travel counting
+  w.pointerDown(1, 0, 0, true, true); assert.equal(w.pointerUp(1, 0, 0), false);   // right/shift-drag
+  w.pointerDown(1, 0, 0, false, false); assert.equal(w.pointerUp(1, 0, 0), false); // not the main button
   // pinch: each finger moves only a little, then they lift one at a time
-  t.down(1, 0, 0, true); t.down(2, 50, 0, true); t.move(1, 3, 0); assert.equal(t.up(2), false); assert.equal(t.up(1), false);
-  t.down(1, 0, 0, true); t.down(2, 50, 0, true); t.cancel(2); assert.equal(t.up(1), false);
-  t.down(1, 0, 0, true); t.cancel(1); assert.equal(t.up(1), false);
-  t.down(1, 0, 0, true); assert.equal(t.up(1), true);  // nothing left over from the gestures above
+  for (const second of [false, true]) {
+    w.pointerDown(1, 0, 0, false, true); w.pointerDown(2, 50, 0, false, second); w.pointerMove(1, 3, 0);
+    assert.equal(w.pointerUp(1, 3, 0), false); assert.equal(w.pointerUp(2, 50, 0), false);
+  }
+  w.pointerDown(1, 0, 0, false, true); w.pointerCancel(1); assert.equal(w.pointerUp(1, 0, 0), false);
+  assert.equal(tapAt(w, []), true);  // nothing left over from the gestures above
 });
+
+test("tap: losing focus mid-press does not swallow the next click", () => {
+  const w = at();
+  w.pointerDown(1, 0, 0, false, true); w.blur();  // released outside the window: no pointerup arrives
+  assert.equal(tapAt(w, []), true);
+});
+
 test("tap: any gesture that ever had two pointers down is never a tap", () => {
-  const ev = fc.oneof(
-    fc.record({ k: fc.constant("down"), id: fc.integer({ min: 1, max: 3 }), primary: fc.boolean() }),
-    fc.record({ k: fc.constant("move"), id: fc.integer({ min: 1, max: 3 }), x: fc.integer({ min: -20, max: 20 }) }),
-    fc.record({ k: fc.constant("up"), id: fc.integer({ min: 1, max: 3 }) }),
-    fc.record({ k: fc.constant("cancel"), id: fc.integer({ min: 1, max: 3 }) }));
-  fc.assert(fc.property(fc.array(ev, { maxLength: 30 }), events => {
-    const t = tapGesture(), live = new Set();
+  const ev = fc.tuple(fc.constantFrom("down", "down", "up", "up", "move", "cancel"), fc.integer({ min: 1, max: 2 }), fc.integer({ min: -1, max: 1 }));
+  fc.assert(fc.property(fc.array(ev, { maxLength: 12 }), events => {
+    const w = at(), live = new Set();
     let multi = false;
-    for (const e of events) {
-      if (e.k === "down") { if (live.has(e.id)) continue; live.add(e.id); if (live.size > 1) multi = true; t.down(e.id, 0, 0, e.primary); }
-      else if (e.k === "move") t.move(e.id, e.x, 0);
-      else if (!live.has(e.id)) continue;
-      else if (e.k === "cancel") { live.delete(e.id); t.cancel(e.id); if (!live.size) multi = false; }
-      else { live.delete(e.id); const tap = t.up(e.id); if (multi) assert.equal(tap, false); if (!live.size) multi = false; }
+    for (const [k, id, x] of events) {
+      if (k === "down") { if (live.has(id)) continue; live.add(id); multi ||= live.size > 1; w.pointerDown(id, x, 0, false, true); }
+      else if (k === "move") w.pointerMove(id, x, 0);
+      else if (!live.has(id)) continue;
+      else if (k === "cancel") { live.delete(id); w.pointerCancel(id); }
+      else { live.delete(id); const tap = w.pointerUp(id, x, 0); if (multi) assert.equal(tap, false); }
+      if (!live.size) multi = false;
     }
-  }));
+  }), { numRuns: 500 });  // short, dense sequences: two fingers down then lifted happens often
+});
+
+test("goTo: tapping a movement key between frames still stops the walk", () => {
+  for (const key of ["w", "ArrowLeft", "q"]) {
+    const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(...SPOTS[6]); run(w, 5);
+    w.keyDown({ key }); w.keyUp(key);
+    assert.equal(run(w, 1, 1000).flying, false, key);
+  }
+  const w = walker({ x: 0, z: 5, yaw: 0, pitch: 0 }); w.goTo(...SPOTS[6]); run(w, 5);
+  w.keyDown({ key: "Shift" }); w.keyUp("Shift"); assert.equal(run(w, 1, 1000).flying, true);
 });
 
 test("goTo: the head turns gradually on the way and never tips past +-1.45, even over a piece at your feet", () => {

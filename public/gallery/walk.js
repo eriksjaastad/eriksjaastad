@@ -46,6 +46,8 @@ export function wheelMeters(deltaY, deltaMode, pageHeight) {
   return Number.isFinite(px) ? -Math.min(120, Math.max(-120, px)) * 0.006 : 0;
 }
 
+const MOVE_KEYS = ["w", "a", "s", "d", "q", "e", "arrowup", "arrowdown", "arrowleft", "arrowright"];
+
 export const EYE = 1.75;  // a 6 ft person's eyes; the camera never leaves this height
 
 // The page's input -> camera pose controller. The page forwards DOM events and applies frame()'s pose.
@@ -67,21 +69,46 @@ export function walker(start, room = ROOM) {
     if (k === 1) flight = null;
   };
   const pressed = (a, b) => keys.has(a) || keys.has(b);
+  // the gesture so far is a tap while one primary pointer is down and has moved at most 6 px in total.
+  // Each new gesture starts fresh, so a press lost to blur or cancel can't spoil the next click.
+  let tap = null;
+  const pointerMove = (id, x, y) => {
+    const p = pointers.get(id);
+    if (!p || !Number.isFinite(x) || !Number.isFinite(y)) return;  // a bad sample neither moves you nor resets travel
+    const dx = x - p.x, dy = y - p.y;
+    p.x = x; p.y = y;
+    if (tap && (tap.travel += Math.hypot(dx, dy)) > 6) tap = null;
+    if (pointers.size > 1) return;
+    if (p.slide) move(dy * 0.01, -dx * 0.01); else turn(dx, dy);
+  };
   return {
-    // drag looks, a sliding drag walks; with two pointers down neither acts, but both stay current
-    pointerDown(id, x, y, slide) { pointers.set(id, { x, y, slide }); },
-    pointerMove(id, x, y) {
-      const p = pointers.get(id);
-      if (!p) return;
-      const dx = x - p.x, dy = y - p.y;
-      p.x = x; p.y = y;
-      if (pointers.size > 1) return;
-      if (p.slide) move(dy * 0.01, -dx * 0.01); else turn(dx, dy);
+    // drag looks, a sliding drag walks; with two pointers down neither acts, but both stay current.
+    // primary: the main button of the first pointer (a right-drag or a second finger is never a tap)
+    pointerDown(id, x, y, slide, primary) {
+      tap = !pointers.size && primary && !slide ? { travel: 0 } : null;
+      pointers.set(id, { x, y, slide });
     },
-    pointerUp(id) { pointers.delete(id); },
+    // feed every sample (coalesced events too), so travel that comes back on itself still counts
+    pointerMove,
+    // lifting at x, y counts that last bit of travel; returns true when the whole gesture was a tap
+    pointerUp(id, x, y) {
+      if (!pointers.has(id)) return false;
+      pointerMove(id, x, y);
+      pointers.delete(id);
+      const wasTap = !!tap;  // a tap only ever has one pointer, so this was the last one up
+      tap = null;
+      return wasTap;
+    },
+    pointerCancel(id) { pointers.delete(id); },
     wheel(deltaY, deltaMode, pageHeight) { move(wheelMeters(deltaY, deltaMode, pageHeight), 0); },
     // a modifier means a shortcut (Cmd+W ...), and macOS drops keyups while Cmd is held: stop everything
-    keyDown({ key, metaKey, ctrlKey, altKey }) { if (metaKey || ctrlKey || altKey) keys.clear(); else keys.add(key.toLowerCase()); },
+    // a movement key stops a walk to a piece at once, even if released before the next frame
+    keyDown({ key, metaKey, ctrlKey, altKey }) {
+      if (metaKey || ctrlKey || altKey) { keys.clear(); return; }
+      const k = key.toLowerCase();
+      keys.add(k);
+      if (MOVE_KEYS.includes(k)) flight = null;
+    },
     keyUp(key) { keys.delete(key.toLowerCase()); },
     blur() { keys.clear(); pointers.clear(); },
     // walk to stand at {x, z} looking at {x, y, z}; calling it again (same piece or another) starts afresh
@@ -99,37 +126,6 @@ export function walker(start, room = ROOM) {
       if (q) turn(q * 300 * dt, 0);
       if (flight) fly(dt);
       return { x: me.x, y: EYE, z: me.z, pitch: me.pitch, yaw: me.yaw, roll: 0, flying: !!flight };
-    },
-  };
-}
-
-// Decides whether a whole pointer gesture was a tap: one primary pointer, down and up,
-// moving no more than `slop` px in total. A second finger or a cancel spoils it for good.
-export function tapGesture(slop = 6) {
-  let g = null;
-  return {
-    down(id, x, y, primary) {
-      if (g) { g.ok = false; g.live.add(id); return; }
-      g = { id, x, y, travel: 0, ok: primary, live: new Set([id]) };
-    },
-    move(id, x, y) {
-      if (!g || id !== g.id) return;
-      g.travel += Math.hypot(x - g.x, y - g.y); g.x = x; g.y = y;
-      if (g.travel > slop) g.ok = false;
-    },
-    // true only when the last pointer lifts and the gesture stayed a tap
-    up(id) {
-      if (!g) return false;
-      g.live.delete(id);
-      if (g.live.size) return false;
-      const tap = g.ok && id === g.id;
-      g = null;
-      return tap;
-    },
-    cancel(id) {
-      if (!g) return;
-      g.ok = false; g.live.delete(id);
-      if (!g.live.size) g = null;
     },
   };
 }

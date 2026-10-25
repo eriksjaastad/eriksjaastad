@@ -39,7 +39,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 </script>
 <script type="module">
 import * as THREE from "three";
-import { walker, tapGesture } from "./walk.js";
+import { walker } from "./walk.js";
 
 // Room: x -6..6, floor y 0, ceiling y 5, entrance z +6, back wall z -10.
 const W = 6, H = 5, FRONT = 6, BACK = -10;
@@ -194,7 +194,7 @@ const shapes = [new THREE.TorusKnotGeometry(0.28, 0.09, 90, 10), new THREE.Icosa
 const me = walker({ x: 0, z: 5, yaw: 0, pitch: -0.03 });
 const el = renderer.domElement;
 el.addEventListener("contextmenu", e => e.preventDefault());
-const tap = tapGesture(), ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), cap = document.getElementById("caption");
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), cap = document.getElementById("caption");
 let focused = null;  // the piece whose caption shows; it hides once you walk away from it
 function show(p) { focused = p; document.body.classList.toggle("focused", !!p); if (p) { cap.querySelector("b").textContent = p.name; cap.querySelector("span").textContent = p.note; } }
 function pick(x, y) {
@@ -203,17 +203,18 @@ function pick(x, y) {
 }
 el.addEventListener("pointerdown", e => {
   el.setPointerCapture(e.pointerId);
-  const slide = e.button === 2 || e.shiftKey;
-  me.pointerDown(e.pointerId, e.clientX, e.clientY, slide); tap.down(e.pointerId, e.clientX, e.clientY, e.isPrimary && !slide);
+  me.pointerDown(e.pointerId, e.clientX, e.clientY, e.button === 2 || e.shiftKey, e.isPrimary && e.button === 0);
 });
-el.addEventListener("pointermove", e => { me.pointerMove(e.pointerId, e.clientX, e.clientY); tap.move(e.pointerId, e.clientX, e.clientY); });
+el.addEventListener("pointermove", e => {
+  const all = e.getCoalescedEvents?.();  // every sample since the last event; Safari has none
+  for (const c of all?.length ? all : [e]) me.pointerMove(e.pointerId, c.clientX, c.clientY);
+});
 el.addEventListener("pointerup", e => {
-  me.pointerUp(e.pointerId);
-  if (!tap.up(e.pointerId)) return;
+  if (!me.pointerUp(e.pointerId, e.clientX, e.clientY)) return;
   let o = pick(e.clientX, e.clientY); while (o && !o.userData.stand) o = o.parent;  // a hit on a child (the canvas, a page)
   if (o) { me.goTo(o.userData.stand, o.userData.look); show(o.userData); }
 });
-el.addEventListener("pointercancel", e => { me.pointerUp(e.pointerId); tap.cancel(e.pointerId); });
+el.addEventListener("pointercancel", e => me.pointerCancel(e.pointerId));
 el.addEventListener("wheel", e => { e.preventDefault(); me.wheel(e.deltaY, e.deltaMode, innerHeight); }, { passive: false });
 addEventListener("keydown", e => me.keyDown(e));
 addEventListener("keyup", e => me.keyUp(e.key));
