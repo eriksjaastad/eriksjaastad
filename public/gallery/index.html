@@ -45,7 +45,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 import * as THREE from "three";
 import { walker } from "./walk.js";
 import { walkThrough } from "./room.js";
-import { styleFrom, hypostyleColumns, NAVE, AISLE, PANTHEON } from "./rooms.js";
+import { styleFrom, hypostyleColumns, NAVE, AISLE, PANTHEON, bounds, shadowBox } from "./rooms.js";
 
 // Room: x -6..6, floor y 0, ceiling y 5, entrance z +6, back wall z -10.
 const W = 6, H = 5, FRONT = 6, BACK = -10;
@@ -121,11 +121,12 @@ function canvasTex(w, h, draw, rx = 1, ry = 1) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
 }
-// the sun: one shadow-casting directional light, so roofs, walls and the dome decide where daylight lands
-function sun(color, intensity, from, to, half) {
+// the sun: one shadow-casting directional light, so roofs, walls and the dome decide where daylight lands. Its
+// shadow camera covers the whole space (rooms.js bounds), since three.js leaves anything outside it unshadowed.
+function sun(color, intensity, from, to) {
   const s = new THREE.DirectionalLight(color, intensity);
   s.position.copy(from); s.target.position.copy(to); s.castShadow = true;
-  Object.assign(s.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 1, far: from.distanceTo(to) * 2 });
+  Object.assign(s.shadow.camera, shadowBox(from, to, bounds(style))); s.shadow.camera.updateProjectionMatrix();
   s.shadow.mapSize.set(2048, 2048); s.shadow.bias = -0.0004; s.shadow.normalBias = 0.05;
   scene.add(s, s.target); return s;
 }
@@ -190,7 +191,8 @@ function hypostyleShell() {
   // roofs: architraves on the nave columns, the high nave roof, the aisles' lower roofs, the clerestory grilles between
   const roofMat = new THREE.MeshStandardMaterial({ color: "#6e5638", roughness: 1 });
   const slab = (w, h, d, x, y, z, mat = roofMat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m; };
-  const zMin = Math.min(...AISLE.zs) - 4, zMax = Math.max(...AISLE.zs) + 4, len = zMax - zMin, zMid = (zMin + zMax) / 2, outer = AISLE.xs.at(-1) + 4;
+  const box = bounds("hypostyle");  // the outer walls' outside faces are this box's sides
+  const zMin = box.minZ + 0.5, zMax = box.maxZ - 0.5, len = zMax - zMin, zMid = (zMin + zMax) / 2, outer = box.maxX - 0.5;
   const clere = NAVE.rows[1] + 2.5;  // the clerestory sits just outside the nave columns
   for (const x of NAVE.rows) slab(3, 1.6, len, x, NAVE.h + 0.8, zMid, plain);
   slab(2 * clere + 0.6, 1, len, 0, NAVE.h + 4.6, zMid);                                // the nave's roof
@@ -210,7 +212,7 @@ function hypostyleShell() {
   }
   for (const z of [zMin, zMax]) slab(2 * outer, NAVE.h + 5, 1, 0, (NAVE.h + 5) / 2, z, plain);
   // the sun stands high to one side; only what comes through the far clerestory reaches the nave floor
-  sun("#ffd9a0", 4.2, new THREE.Vector3(40, 75, -8), new THREE.Vector3(0, 0, -2), 34);
+  sun("#ffd9a0", 4.2, new THREE.Vector3(40, 75, -8), new THREE.Vector3(0, 0, -2));
   scene.add(new THREE.HemisphereLight("#d8b98a", "#2a1a0e", 0.35));
 }
 
@@ -265,7 +267,7 @@ function pantheonShell() {
   door.position.set(cx, 6.25, cz + R - 0.05); door.rotation.y = Math.PI; scene.add(door);
   // the sun, slightly off vertical so the pool lands on the floor inside the gallery
   const oc = new THREE.Vector3(cx, rimY, cz), pool = new THREE.Vector3(2.5, 0, -4.5), dir = pool.clone().sub(oc).normalize();
-  sun("#fff1d6", 9, oc.clone().addScaledVector(dir, -30), pool, R + 2);
+  sun("#fff1d6", 9, oc.clone().addScaledVector(dir, -30), pool);
   // the column of light itself: parallel rays, so a cylinder the oculus' width, not a cone to a point
   const shaftLen = oc.distanceTo(pool), shaft = new THREE.Mesh(new THREE.CylinderGeometry(oculus, oculus, shaftLen, 48, 1, true),
     new THREE.MeshBasicMaterial({ color: "#fff3dc", transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -377,6 +379,9 @@ const shapes = [new THREE.TorusKnotGeometry(0.28, 0.09, 90, 10), new THREE.Icosa
   piece([g], "The archive", "high school + college years · coming soon", { x: -W + 3.4, z: BACK + 3.4 }, { x: -W + 1.3, y: 0.5, z: BACK + 1.1 });
   spot(new THREE.Vector3(-W + 1.3, 0.4, BACK + 1.1), new THREE.Vector3(-W + 2.6, H - 0.1, BACK + 2.4), 30, 0.35);
 }
+
+// in the big spaces the sun is real, so everything it lights must also take the shadows of the roofs and the dome
+if (open) scene.traverse(o => { if (o.isMesh || o.isInstancedMesh) o.receiveShadow = true; });
 
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
 walkThrough({ renderer, scene, camera, me: walker({ x: 0, z: 5, yaw: 0, pitch: -0.03 }), pieces,
