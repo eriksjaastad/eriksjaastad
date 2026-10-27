@@ -15,3 +15,19 @@ export const SPOTS = {
   snowboard: { stand: { x: 1.9, z: -2.1 }, look: { x: 3.6, y: 0.9, z: -3.7 } },
   rollerblades: { stand: { x: 1.6, z: -2.6 }, look: { x: 2.7, y: 0.1, z: -3.6 } },
 };
+
+// The chest's drawers and cabinet doors. Each tap flips one between shut and open, and it moves there at a steady
+// speed (0.4 s end to end); a tap mid-way turns it round from where it is. step(dt) advances them all and returns
+// how open each is, 0 shut to 1 open.
+export const OPENABLE = ["drawer0", "drawer1", "drawer2", "doorLeft", "doorRight"];
+export function hinges(names = OPENABLE) {
+  const at = Object.fromEntries(names.map(n => [n, 0])), want = { ...at };
+  return {
+    toggle(name) { want[name] = 1 - want[name]; },
+    step(dt) {
+      const d = Number.isFinite(dt) ? Math.max(0, dt) / 0.4 : 0;
+      for (const n of names) at[n] += Math.max(-d, Math.min(d, want[n] - at[n]));
+      return { ...at };
+    },
+  };
+}

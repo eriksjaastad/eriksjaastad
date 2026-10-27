@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { standable, walker, heading } from "../public/gallery/walk.js";
-import { CABIN, START, SPOTS } from "../public/flashback/cabin.js";
+import { CABIN, START, SPOTS, OPENABLE, hinges } from "../public/flashback/cabin.js";
 
 // the furniture's footprint (index.html): chest x -0.75..0.75 to z -3.4, rollerblades from x 2.4, snowboard in the corner
 const inside = (x, z) => (Math.abs(x) < 0.75 && z < -3.35) || (x > 2.35 && z < -3.25);
@@ -30,4 +30,32 @@ test("cabin: from the door every thing you can click is reached, facing it, and 
     const d = heading(p.yaw, 1, 0), to = Math.hypot(look.x - p.x, look.z - p.z);
     assert.ok(d.dx * (look.x - p.x) + d.dz * (look.z - p.z) > 0.99 * to, `${name} faces what it looks at`);
   }
+});
+
+test("hinges: a tap opens a drawer in 0.4 s, another shuts it, and the others don't move", () => {
+  const h = hinges();
+  h.toggle("drawer1");
+  assert.equal(h.step(0.2).drawer1, 0.5);
+  const f = h.step(1);
+  assert.ok(f.drawer1 === 1 && OPENABLE.filter(n => n !== "drawer1").every(n => f[n] === 0));
+  h.toggle("drawer1"); assert.equal(h.step(0.4).drawer1, 0);
+});
+
+test("hinges: any taps and frame gaps keep every part between shut and open, turning round without jumps", () => {
+  const ev = fc.oneof(fc.constantFrom(...OPENABLE).map(n => ({ n })), fc.oneof(fc.double({ min: -1, max: 2 }), fc.constant(NaN), fc.constant(Infinity)).map(dt => ({ dt })));
+  fc.assert(fc.property(fc.array(ev, { maxLength: 40 }), events => {
+    const h = hinges(), want = Object.fromEntries(OPENABLE.map(n => [n, 0]));  // each tap flips what we expect
+    let prev = h.step(0);
+    for (const e of events) {
+      if ("n" in e) { h.toggle(e.n); want[e.n] = 1 - want[e.n]; continue; }
+      const f = h.step(e.dt), most = Number.isFinite(e.dt) ? Math.max(0, e.dt) / 0.4 : 0;
+      for (const n of OPENABLE) {
+        const why = `${n} ${prev[n]} -> ${f[n]} toward ${want[n]} in ${e.dt}`, gap = want[n] - prev[n];
+        assert.ok(f[n] >= 0 && f[n] <= 1, why);
+        // toward the latest tap's end, by the full step or all the way when that's closer
+        assert.ok(Math.abs(f[n] - (prev[n] + Math.sign(gap) * Math.min(Math.abs(gap), most))) < 1e-12, why);
+      }
+      prev = f;
+    }
+  }), { numRuns: 500 });
 });

@@ -3,8 +3,9 @@
 import * as THREE from "three";
 
 // pieces: meshes or groups whose userData is { name, note, stand, look }; a hit on a child counts as its piece.
-// onFrame(now) runs before each render for the page's own animation.
-export function walkThrough({ renderer, scene, camera, me, pieces, onFrame = () => {} }) {
+// onFrame(now) runs before each render for the page's own animation. onTap(hit) runs when you tap a piece you are
+// standing at right now (however you got there), with the mesh you hit; returning true means the page used the tap.
+export function walkThrough({ renderer, scene, camera, me, pieces, onFrame = () => {}, onTap = () => false }) {
   const el = renderer.domElement;
   el.addEventListener("contextmenu", e => e.preventDefault());
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), cap = document.getElementById("caption");
@@ -12,9 +13,9 @@ export function walkThrough({ renderer, scene, camera, me, pieces, onFrame = () 
   function show(p) { focused = p; document.body.classList.toggle("focused", !!p); if (p) { cap.querySelector("b").textContent = p.name; cap.querySelector("span").textContent = p.note; } }
   function pick(x, y) {
     ray.setFromCamera(ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
-    let o = ray.intersectObjects(pieces, true)[0]?.object;
-    while (o && !o.userData.stand) o = o.parent;
-    return o;
+    const hit = ray.intersectObjects(pieces, true)[0]?.object;
+    let o = hit; while (o && !o.userData.stand) o = o.parent;
+    return { hit, piece: o };
   }
   el.addEventListener("pointerdown", e => {
     el.setPointerCapture(e.pointerId);
@@ -26,8 +27,10 @@ export function walkThrough({ renderer, scene, camera, me, pieces, onFrame = () 
   });
   el.addEventListener("pointerup", e => {
     if (!me.pointerUp(e.pointerId, e.clientX, e.clientY)) return;
-    const o = pick(e.clientX, e.clientY);
-    if (o) { me.goTo(o.userData.stand, o.userData.look); show(o.userData); }
+    const { hit, piece } = pick(e.clientX, e.clientY);
+    if (!piece) return;
+    if (!(me.standingAt(piece.userData.stand) && onTap(hit))) me.goTo(piece.userData.stand, piece.userData.look);
+    show(piece.userData);
   });
   el.addEventListener("pointercancel", e => me.pointerCancel(e.pointerId));
   el.addEventListener("wheel", e => { e.preventDefault(); me.wheel(e.deltaY, e.deltaMode, innerHeight); }, { passive: false });
