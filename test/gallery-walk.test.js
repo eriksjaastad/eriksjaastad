@@ -52,12 +52,12 @@ test("wheel: a Firefox line notch walks as far as the same pixels; output is bou
 const at = () => walker({ x: 0, z: 0, yaw: 0, pitch: 0 }), walkFor = (w, ms) => { w.frame(0); return w.frame(ms); };
 
 test("walker: any input keeps eye height, no roll, pitch within +-1.45 and floor under you", () => {
-  const ev = fc.tuple(fc.integer({ min: 0, max: 4 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }));
+  const ev = fc.tuple(fc.integer({ min: 0, max: 4 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: 1, max: 3 }));
   fc.assert(fc.property(fc.array(ev, { maxLength: 30 }), events => {
     const w = at();
     let t = 0;  // a frame after every event, so walks to a (possibly unreachable) spot run too
-    for (const [k, a, b] of events) {
-      [() => w.pointerDown(1, a, b, a > 0), () => w.pointerMove(1, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(1), () => w.goTo({ x: a / 90, z: b / 90 }, { x: 0, y: 1, z: -9 })][k]();
+    for (const [k, a, b, id] of events) {  // up to three pointers, so pinches and their slides walk too
+      [() => w.pointerDown(id, a, b, a > 0), () => w.pointerMove(id, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(id), () => w.goTo({ x: a / 90, z: b / 90 }, { x: 0, y: 1, z: -9 })][k]();
       w.frame(t += 16);
     }
     const p = w.frame(t + 16);
@@ -79,6 +79,80 @@ test("walker: after two fingers become one, the next 1 px move turns 1 px worth"
   assert.ok(Math.abs(w.frame(0).yaw - 0.005) < 1e-12);
 });
 
+test("pinch: spreading two fingers walks forward, pinching walks back, moving both slides; a third finger stops it", () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const two = () => { const w = at(); w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false); return w; };
+  let w = two(); w.pointerMove(1, -30, 0); w.pointerMove(2, 130, 0); let p = w.frame(0);
+  assert.ok(near(p.z, -0.6) && near(p.x, 0) && p.yaw === 0, "spread 60 px walks 0.6 m forward without turning");
+  w = two(); w.pointerMove(1, 20, 0); w.pointerMove(2, 80, 0); p = w.frame(0);
+  assert.ok(near(p.z, 0.4) && near(p.x, 0), "pinch 40 px walks back");
+  w = two(); w.pointerMove(1, 0, 20); w.pointerMove(2, 100, 20); p = w.frame(0);
+  assert.ok(near(p.z, -0.2) && near(p.x, 0), "both fingers 20 px down walks forward like a sliding drag");
+  w = two(); w.pointerMove(1, 20, 0); w.pointerMove(2, 120, 0); assert.ok(near(w.frame(0).x, -0.2), "both 20 px right slides left");
+  w = two(); w.pointerDown(3, 50, 50, false); w.pointerMove(2, 400, 0); w.pointerMove(3, 0, 300);
+  p = w.frame(0); assert.ok(p.x === 0 && p.z === 0 && p.yaw === 0, "three fingers do nothing");
+  w = at(); w.pointerDown(1, 0, 0, false); w.pointerDown(2, 300, 0, false); p = w.frame(0);
+  assert.ok(p.x === 0 && p.z === 0 && p.yaw === 0, "a second finger landing far away does not move you");
+});
+
+test("pinch: two fingers come out the same in either event order, beside a wall or the book stand, and move once", () => {
+  const gestures = { slide: [20, 120], spread: [-30, 130] };  // where fingers 1 and 2 (from x 0 and 100) move to
+  for (const spot of [{ x: 0, z: 5.45 }, { x: 0.65, z: -8.4 }, { x: -5.45, z: 0 }, { x: 0, z: -9.45 }, { x: 0, z: 0 }]) {
+    for (const [name, to] of Object.entries(gestures)) {
+      const ends = [[1, 2], [2, 1]].map(order => {
+        const w = walker({ ...spot, yaw: 0, pitch: 0 });
+        w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false);
+        for (const id of order) w.pointerMove(id, to[id - 1], 0);
+        const p = w.frame(0);
+        assert.deepEqual(w.frame(16), p, "the next frame does not move again");
+        return p;
+      });
+      const why = `${name} at ${JSON.stringify(spot)}`;
+      assert.deepEqual(ends[0], ends[1], why);
+      assert.ok(standable(ends[0].x, ends[0].z, ROOM), why);
+      if (name === "slide") assert.ok(Math.abs(ends[0].z - spot.z) < 1e-9, why);  // a sideways slide never walks forward
+    }
+  }
+});
+
+test("pinch: a pinch lands before whatever moves you next, with or without a frame in between", () => {
+  const near = (a, b) => ["x", "z", "yaw"].every(k => Math.abs(a[k] - b[k]) < 1e-9);
+  // each case: where you stand, a two-finger gesture (fingers start at x 0 and 100), then an input whose result
+  // depends on order: a turn (one finger left), the wheel beside a plinth, a tap's walk to a piece
+  const cases = {
+    look: [{ x: 0, z: 0 }, [[1, -30], [2, 130]], w => { w.pointerUp(2, 130, 0); w.pointerMove(1, 70, 0); }],
+    wheel: [{ x: 3.85, z: 2 }, [[1, -60], [2, 40]], w => w.wheel(-83, 0, 800)],
+    // lifts with bad samples (NaN) walk nothing themselves, so the tap's walk to a piece is the next thing that moves you
+    tap: [{ x: 0, z: 0 }, [[1, -30], [2, 130]], w => {
+      w.pointerUp(1, NaN, NaN); w.pointerUp(2, NaN, NaN); w.pointerDown(3, 5, 5, false, true);
+      assert.equal(w.pointerUp(3, NaN, NaN), true); w.goTo(...SPOTS[0]);
+    }],
+  };
+  for (const [name, [spot, gesture, next]] of Object.entries(cases)) {
+    const [a, b] = [false, true].map(frameBetween => {
+      const w = walker({ ...spot, yaw: 0, pitch: 0 });
+      w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false);
+      for (const [id, x] of gesture) w.pointerMove(id, x, 0);
+      if (frameBetween) w.frame(0);
+      next(w);
+      return w.frame(0);
+    });
+    assert.ok(near(a, b) && a.flying === b.flying, `${name}: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+  }
+});
+
+test("pinch: two fingers moving take over from a walk to a piece even if they end where they began; a tap after a pinch still walks", () => {
+  for (const axis of [0, 1]) {
+    const w = at(); w.goTo(...SPOTS[0]);
+    w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false);
+    w.pointerMove(2, 100 + 30 * (1 - axis), 30 * axis); w.pointerMove(2, 100, 0);
+    assert.equal(w.frame(0).flying, false, `out and back on axis ${axis}`);
+  }
+  const w = at();
+  w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false); w.pointerMove(2, 160, 0);
+  w.pointerUp(1, 0, 0); w.pointerUp(2, 160, 0); w.goTo(...SPOTS[0]);
+  assert.equal(w.frame(0).flying, true, "the pinch before the tap does not cancel the walk the tap started");
+});
 
 test("walker: each control moves the view the way it says, and a released key stops", () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
