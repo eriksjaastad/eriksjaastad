@@ -203,13 +203,39 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
 
 // back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
 {
-  const c = document.createElement("canvas"); c.width = 64; c.height = 256;
+  // the board: a real outline (wide nose and tail, a waisted sidecut), thin, with a '90s top sheet and two bindings,
+  // standing on its tail with the top sheet facing the room
+  const L = 1.55, tip = 0.13, waist = 0.112;
+  const outline = new THREE.Shape();
+  outline.moveTo(-tip, -L / 2 + 0.15);
+  outline.quadraticCurveTo(-waist, 0, -tip, L / 2 - 0.15);
+  outline.bezierCurveTo(-tip - 0.005, L / 2 + 0.02, tip + 0.005, L / 2 + 0.02, tip, L / 2 - 0.15);
+  outline.quadraticCurveTo(waist, 0, tip, -L / 2 + 0.15);
+  outline.bezierCurveTo(tip + 0.005, -L / 2 - 0.02, -tip - 0.005, -L / 2 - 0.02, -tip, -L / 2 + 0.15);
+  const c = document.createElement("canvas"); c.width = 128; c.height = 512;
   const g = c.getContext("2d");
-  g.fillStyle = "#1b1b2f"; g.fillRect(0, 0, 64, 256);
-  for (const [y, col] of [[40, "#ff2fa0"], [90, "#39ff88"], [140, "#ffe14d"], [190, "#2fd1ff"]]) { g.fillStyle = col; g.fillRect(0, y, 64, 22); }
+  g.fillStyle = "#16162a"; g.fillRect(0, 0, 128, 512);
+  for (const [i, col] of ["#ff2fa0", "#39ff88", "#ffe14d", "#2fd1ff", "#ff2fa0"].entries()) {  // neon zigzags down the board
+    g.strokeStyle = col; g.lineWidth = 9; g.beginPath();
+    for (let x = 0; x <= 128; x += 16) g.lineTo(x, 70 + i * 90 + (x / 16 % 2 ? 18 : -18));
+    g.stroke();
+  }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const board = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 1.25, 8, 16), new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 }));
-  board.scale.z = 0.12; board.position.set(3.6, 0.82, BACK + 0.25); board.rotation.set(-0.1, 0, -0.12); board.castShadow = true; scene.add(board);
+  t.repeat.set(1 / (2 * tip + 0.01), 1 / (L + 0.04)); t.offset.set(0.5, 0.5);  // extrude UVs are shape coordinates
+  const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(outline, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 2, curveSegments: 24 }),
+    [new THREE.MeshStandardMaterial({ map: t, roughness: 0.35 }), new THREE.MeshStandardMaterial({ color: "#d9d9de", metalness: 0.6, roughness: 0.3 })]);  // top sheet, steel edges
+  deck.castShadow = true;
+  const board = new THREE.Group(); board.add(deck);
+  const strap = new THREE.MeshStandardMaterial({ color: "#121216", roughness: 0.7 }), plate = new THREE.MeshStandardMaterial({ color: "#c43a6a", roughness: 0.5 });
+  for (const [y, angle] of [[0.27, 0.3], [-0.27, -0.1]]) {  // bindings, angled like a regular stance
+    const b = new THREE.Group(); b.position.set(0, y, 0.015); b.rotation.z = angle;
+    b.add(mesh(new THREE.BoxGeometry(0.21, 0.11, 0.025), plate, 0, 0, 0.0125));             // baseplate
+    b.add(mesh(new THREE.BoxGeometry(0.19, 0.025, 0.17), plate, 0, -0.06, 0.1, 0.2));        // highback
+    for (const dy of [0.03, -0.025]) b.add(mesh(new THREE.BoxGeometry(0.21, 0.03, 0.035), strap, 0, dy, 0.085));  // straps
+    b.traverse(m => { m.castShadow = true; }); board.add(b);
+  }
+  // turned to face the room from the corner (toward where you stand to look at it), leaning back into the corner
+  board.position.set(3.5, L / 2 + 0.02, BACK + 0.4); board.rotation.order = "YXZ"; board.rotation.set(-0.14, -0.8, 0); scene.add(board);
   piece([board], "Snowboard", "leaning in the corner since the '90s", SPOTS.snowboard);
 
   const blades = new THREE.Group();
