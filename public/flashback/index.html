@@ -41,7 +41,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { CABIN, START, SPOTS } from "./cabin.js";
+import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -154,7 +154,8 @@ const mesh = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THRE
 function piece(objs, name, note, { stand, look }) { for (const o of objs) { o.userData = { name, note, stand, look }; pieces.push(o); } }
 
 // back wall: the chest of drawers. Three drawers at waist height, a countertop, two cabinet doors above,
-// and a shelf of photo albums on top. Each drawer and door is its own mesh so they can open later.
+// and a shelf of photo albums on top. Standing at it, tap a drawer or a door to open or shut it.
+const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
 {
   const oak = new THREE.MeshStandardMaterial({ color: "#6b4226", roughness: 0.55 });
   const face = new THREE.MeshStandardMaterial({ color: "#7d4f2e", roughness: 0.5 });
@@ -162,14 +163,23 @@ function piece(objs, name, note, { stand, look }) { for (const o of objs) { o.us
   const g = new THREE.Group();
   const add = (geo, mat, x, y, z) => { const m = mesh(geo, mat, x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
   add(new THREE.BoxGeometry(1.4, 0.95, 0.55), oak, 0, 0.475, 0);              // lower carcass
-  for (const [i, y] of [0.17, 0.47, 0.77].entries()) {                        // the three drawers
-    const d = add(new THREE.BoxGeometry(1.3, 0.26, 0.04), face, 0, y, 0.285); d.name = `drawer${i}`;
+  const felt = new THREE.MeshStandardMaterial({ color: "#2b1d2e", roughness: 1 });
+  for (const [i, y] of [0.17, 0.47, 0.77].entries()) {                        // the three drawers: a front and a tray
+    const d = new THREE.Group(); d.position.set(0, y, 0.285); d.name = `drawer${i}`; g.add(d); parts[d.name] = d;
+    d.add(mesh(new THREE.BoxGeometry(1.3, 0.26, 0.04), face, 0, 0, 0));
     for (const x of [-0.35, 0.35]) d.add(mesh(new THREE.SphereGeometry(0.025, 12, 8), brass, x, 0, 0.03));
+    d.add(mesh(new THREE.BoxGeometry(1.2, 0.02, 0.44), felt, 0, -0.1, -0.24));  // the tray's floor, inside the chest when shut
+    for (const x of [-0.6, 0.6]) d.add(mesh(new THREE.BoxGeometry(0.02, 0.18, 0.44), oak, x, -0.02, -0.24));
+    d.add(mesh(new THREE.BoxGeometry(1.2, 0.18, 0.02), oak, 0, -0.02, -0.46));
   }
   add(new THREE.BoxGeometry(1.5, 0.05, 0.62), face, 0, 0.975, 0.02);          // the countertop
   add(new THREE.BoxGeometry(1.3, 0.8, 0.38), oak, 0, 1.55, -0.08);            // upper cabinet, set back
-  for (const side of [-1, 1]) {                                                // its two doors
-    const d = add(new THREE.BoxGeometry(0.62, 0.72, 0.03), face, side * 0.32, 1.55, 0.125); d.name = side < 0 ? "doorLeft" : "doorRight";
+  add(new THREE.PlaneGeometry(1.24, 0.74), felt, 0, 1.55, 0.112);             // the dark inside, seen with the doors open
+  add(new THREE.BoxGeometry(1.24, 0.02, 0.02), oak, 0, 1.55, 0.115);           // and its shelf
+  for (const side of [-1, 1]) {                                                // its two doors, hinged at the outer edges
+    const hinge = new THREE.Group(); hinge.position.set(side * 0.63, 1.55, 0.125); hinge.name = side < 0 ? "doorLeft" : "doorRight";
+    g.add(hinge); parts[hinge.name] = hinge;
+    const d = mesh(new THREE.BoxGeometry(0.62, 0.72, 0.03), face, -side * 0.31, 0, 0); d.castShadow = true; hinge.add(d);
     d.add(mesh(new THREE.SphereGeometry(0.022, 12, 8), brass, -side * 0.25, 0, 0.025));
   }
   add(new THREE.BoxGeometry(1.4, 0.04, 0.4), face, 0, 1.97, -0.08);           // shelf on top
@@ -185,7 +195,7 @@ function piece(objs, name, note, { stand, look }) { for (const o of objs) { o.us
     scrap.add(mesh(new THREE.CircleGeometry(0.035, 5), new THREE.MeshBasicMaterial({ color: c }), x, 0.031, z, -Math.PI / 2, 0, x * 9));
   }
   g.position.set(0, 0, BACK + 0.3); scene.add(g);
-  piece([g], "The chest of drawers", "albums + a scrapbook up top · drawers open soon", SPOTS.chest);
+  piece([g], "The chest of drawers", "albums + a scrapbook up top · tap a drawer or a door", SPOTS.chest);
   const s = new THREE.SpotLight("#ffd9a8", 14, 6, 0.5, 0.6, 1.4);
   s.position.set(0, H - 0.1, BACK + 2); s.target.position.set(0, 1.2, BACK + 0.3); s.castShadow = true; s.shadow.mapSize.set(512, 512);
   scene.add(s, s.target);
@@ -224,7 +234,19 @@ const motes = new THREE.Points(new THREE.BufferGeometry().setAttribute("position
 scene.add(motes);
 
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
+const open = hinges();
+let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
-  onFrame: now => { motes.rotation.y = now * 0.00002; motes.position.y = Math.sin(now * 0.0004) * 0.05; } });
+  onTap: hit => {  // a tap on a drawer or door (or its knob) flips it
+    let o = hit; while (o && !OPENABLE.includes(o.name)) o = o.parent;
+    if (o) open.toggle(o.name);
+    return !!o;
+  },
+  onFrame: now => {
+    motes.rotation.y = now * 0.00002; motes.position.y = Math.sin(now * 0.0004) * 0.05;
+    const f = open.step(last === null ? 0 : (now - last) / 1000); last = now;
+    for (const i of [0, 1, 2]) parts[`drawer${i}`].position.z = 0.285 + f[`drawer${i}`] * 0.36;
+    parts.doorLeft.rotation.y = -f.doorLeft * 1.75; parts.doorRight.rotation.y = f.doorRight * 1.75;
+  } });
 </script>
 </html>
