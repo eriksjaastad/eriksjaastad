@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flashback · Erik Sjaastad</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* One '90s cabin you walk round like /gallery/. Chrome floats in the corners. */
+:root {
+  --bg: #120f0d; --ink: #f3ebe4; --muted: #a39484; --neon: #ff6a00; --line: #3b322b;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; }
+#stage { position: fixed; inset: 0; } #stage canvas { display: block; touch-action: none; }
+.chrome { position: fixed; z-index: 2; }
+#title { top: max(16px, env(safe-area-inset-top)); left: 18px; pointer-events: none; }
+#title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
+#home { top: max(14px, env(safe-area-inset-top)); right: 16px; font-size: 14px; color: var(--ink); text-decoration: none; background: rgba(18,15,13,.6); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
+#home:hover { border-color: var(--neon); color: var(--neon); }
+#hint { left: 18px; bottom: max(16px, env(safe-area-inset-bottom)); font: 12px var(--mono); color: var(--muted); pointer-events: none; transition: opacity .4s; }
+#caption { left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 12px); opacity: 0; transition: opacity .4s, transform .4s; pointer-events: none; text-align: center; width: min(92vw, 520px); }
+#caption b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.02em; } #caption span { font: 13px var(--mono); color: #ffc46b; }
+body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focused #hint { opacity: 0; }  /* both sit at the bottom */
+#hint .touch { display: none; } @media (hover: none) { #hint .desk { display: none; } #hint .touch { display: inline; } }
+</style>
+<div id="stage"></div>
+<header id="title" class="chrome"><h1>Flashback</h1><p>a cabin full of the '90s · still moving in</p></header>
+<a id="home" class="chrome" href="/">Home</a>
+<div id="hint" class="chrome"><span class="desk">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click something to walk to it</span><span class="touch">drag to look · pinch to walk · tap something</span></div>
+<div id="caption" class="chrome" aria-live="polite"><b></b><span></span></div>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { walker } from "../gallery/walk.js";
+import { walkThrough } from "../gallery/room.js";
+import { CABIN, START, SPOTS } from "./cabin.js";
+
+// Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
+const W = 4, H = 3, FRONT = 4, BACK = -4;
+
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+catch (err) { document.querySelector("#title p").textContent = "this room needs WebGL, which this browser could not start"; throw err; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById("stage").appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#120f0d");
+scene.add(new THREE.HemisphereLight("#ffe0bd", "#2a1a10", 0.9));
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 40);
+camera.rotation.order = "YXZ";  // turn, then tilt the head: no roll
+// portrait phones: widen the vertical FOV so both side walls stay in view
+function fit() {
+  camera.aspect = innerWidth / innerHeight;
+  const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(42)) / camera.aspect);
+  camera.fov = THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(half), 60, 100);
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+fit();
+addEventListener("resize", fit);
+
+// boards: horizontal logs on the walls, planks on the floor, drawn once on a canvas and repeated
+function boards(base, seam, n, repeatX, repeatY) {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const g = c.getContext("2d");
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = `hsl(${base[0] + (i * 37 % 7)}, ${base[1]}%, ${base[2] + (i * 53 % 9) - 4}%)`;
+    g.fillRect(0, i * 256 / n, 256, 256 / n);
+    g.fillStyle = seam; g.fillRect(0, (i + 1) * 256 / n - 3, 256, 3);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeatX, repeatY); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK),
+  new THREE.MeshStandardMaterial({ map: boards([28, 45, 30], "#1c120b", 8, 1, 3), roughness: 0.6 }));
+floor.rotation.x = -Math.PI / 2; floor.rotation.z = Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const logs = new THREE.MeshStandardMaterial({ map: boards([24, 40, 34], "#24170e", 6, 2, 2), roughness: 0.85 });
+function wall(w, h, x, y, z, ry) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), logs);
+  m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
+}
+for (const side of [-1, 1]) wall(FRONT - BACK, H, side * W, H / 2, 0, -side * Math.PI / 2);
+wall(2 * W, H, 0, H / 2, BACK, 0);
+wall(2 * W, H, 0, H / 2, FRONT, Math.PI);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshStandardMaterial({ color: "#1d140e" }));
+ceil.rotation.x = Math.PI / 2; ceil.position.y = H; scene.add(ceil);
+for (const z of [-2.5, 0, 2.5]) {  // ceiling beams
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(2 * W, 0.22, 0.22), new THREE.MeshStandardMaterial({ color: "#3a2516", roughness: 0.8 }));
+  beam.position.set(0, H - 0.11, z); scene.add(beam);
+}
+
+// left wall: a window onto a moonlit forest, which is most of the magic
+{
+  const c = document.createElement("canvas"); c.width = 256; c.height = 192;
+  const g = c.getContext("2d");
+  const sky = g.createLinearGradient(0, 0, 0, 192); sky.addColorStop(0, "#0d1a33"); sky.addColorStop(1, "#24406b");
+  g.fillStyle = sky; g.fillRect(0, 0, 256, 192);
+  g.fillStyle = "#f4f0dc"; g.beginPath(); g.arc(190, 46, 16, 0, 7); g.fill();
+  g.fillStyle = "#08110f";
+  for (let i = 0; i < 9; i++) { const x = i * 32 - 8, h = 70 + (i * 41 % 50); g.beginPath(); g.moveTo(x, 192); g.lineTo(x + 20, 192 - h); g.lineTo(x + 40, 192); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.2), new THREE.MeshBasicMaterial({ map: t }));
+  pane.rotation.y = Math.PI / 2; pane.position.set(-W + 0.01, 1.7, 0.5); scene.add(pane);
+  const sash = new THREE.MeshStandardMaterial({ color: "#e9e0cf", roughness: 0.7 });
+  for (const [w, h, y, z] of [[0.08, 1.36, 1.7, -0.32], [0.08, 1.36, 1.7, 1.32], [0.08, 1.36, 1.7, 0.5], [1.72, 0.08, 2.34, 0.5], [1.72, 0.08, 1.06, 0.5], [1.72, 0.06, 1.7, 0.5]]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, h, w), sash); bar.position.set(-W + 0.03, y, z); scene.add(bar);
+  }
+  const moon = new THREE.SpotLight("#9fb8ff", 18, 9, 0.6, 0.8, 1.5);
+  moon.position.set(-W + 0.1, 2.2, 0.5); moon.target.position.set(0, 0, 0.8); scene.add(moon, moon.target);
+}
+
+// front wall: the door you came in by
+{
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2.1, 0.06), new THREE.MeshStandardMaterial({ color: "#4a2d1a", roughness: 0.7 }));
+  door.position.set(0, 1.05, FRONT - 0.03); scene.add(door);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 8), new THREE.MeshStandardMaterial({ color: "#c9a24a", metalness: 0.9, roughness: 0.3 }));
+  knob.position.set(0.38, 1.0, FRONT - 0.08); scene.add(knob);
+}
+
+// the rug, and a warm lamp hanging over the middle of the room
+{
+  const rug = new THREE.Mesh(new THREE.CircleGeometry(1.5, 48), new THREE.MeshStandardMaterial({ color: "#7a2f22", roughness: 1 }));
+  rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.005, 0.2); rug.receiveShadow = true; scene.add(rug);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 48), new THREE.MeshStandardMaterial({ color: "#d9a441", roughness: 1 }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(0, 0.006, 0.2); scene.add(ring);
+  const lamp = new THREE.PointLight("#ffbf73", 9, 9, 1.6);
+  lamp.position.set(0, H - 0.6, 0); lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.bias = -0.002; scene.add(lamp);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), new THREE.MeshBasicMaterial({ color: "#ffe2b0" }));
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.25, 24, 1, true), new THREE.MeshStandardMaterial({ color: "#d9a441", side: THREE.DoubleSide, roughness: 0.6 }));
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.5), new THREE.MeshBasicMaterial({ color: "#111" }));
+  bulb.position.copy(lamp.position); shade.position.set(0, H - 0.5, 0); cord.position.set(0, H - 0.25, 0); scene.add(bulb, shade, cord);
+}
+
+// a thing you can click: where to stand, what to look at, and its caption
+const pieces = [];
+// a mesh placed at x, y, z with an optional rotation, ready to add to a group
+const mesh = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); return m; };
+function piece(objs, name, note, { stand, look }) { for (const o of objs) { o.userData = { name, note, stand, look }; pieces.push(o); } }
+
+// back wall: the chest of drawers. Three drawers at waist height, a countertop, two cabinet doors above,
+// and a shelf of photo albums on top. Each drawer and door is its own mesh so they can open later.
+{
+  const oak = new THREE.MeshStandardMaterial({ color: "#6b4226", roughness: 0.55 });
+  const face = new THREE.MeshStandardMaterial({ color: "#7d4f2e", roughness: 0.5 });
+  const brass = new THREE.MeshStandardMaterial({ color: "#c9a24a", metalness: 0.9, roughness: 0.3 });
+  const g = new THREE.Group();
+  const add = (geo, mat, x, y, z) => { const m = mesh(geo, mat, x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  add(new THREE.BoxGeometry(1.4, 0.95, 0.55), oak, 0, 0.475, 0);              // lower carcass
+  for (const [i, y] of [0.17, 0.47, 0.77].entries()) {                        // the three drawers
+    const d = add(new THREE.BoxGeometry(1.3, 0.26, 0.04), face, 0, y, 0.285); d.name = `drawer${i}`;
+    for (const x of [-0.35, 0.35]) d.add(mesh(new THREE.SphereGeometry(0.025, 12, 8), brass, x, 0, 0.03));
+  }
+  add(new THREE.BoxGeometry(1.5, 0.05, 0.62), face, 0, 0.975, 0.02);          // the countertop
+  add(new THREE.BoxGeometry(1.3, 0.8, 0.38), oak, 0, 1.55, -0.08);            // upper cabinet, set back
+  for (const side of [-1, 1]) {                                                // its two doors
+    const d = add(new THREE.BoxGeometry(0.62, 0.72, 0.03), face, side * 0.32, 1.55, 0.125); d.name = side < 0 ? "doorLeft" : "doorRight";
+    d.add(mesh(new THREE.SphereGeometry(0.022, 12, 8), brass, -side * 0.25, 0, 0.025));
+  }
+  add(new THREE.BoxGeometry(1.4, 0.04, 0.4), face, 0, 1.97, -0.08);           // shelf on top
+  // albums standing on the shelf, and the scrapbook lying flat with stickers on it
+  const covers = ["#1f4e79", "#8c2f39", "#2f6b4f", "#5b3f8c", "#c47f2c"];
+  covers.forEach((c, i) => {
+    const a = add(new THREE.BoxGeometry(0.07, 0.34, 0.27), new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }), -0.6 + i * 0.09, 2.16, -0.08);
+    a.rotation.z = i === covers.length - 1 ? -0.18 : 0; a.name = `album${i}`;
+  });
+  const scrap = add(new THREE.BoxGeometry(0.38, 0.06, 0.3), new THREE.MeshStandardMaterial({ color: "#f2a7c3", roughness: 0.8 }), 0.35, 2.02, -0.08);
+  scrap.name = "scrapbook";
+  for (const [x, z, c] of [[-0.1, -0.05, "#ffe14d"], [0.08, 0.07, "#4dd9ff"], [0.12, -0.08, "#9b5cff"]]) {
+    scrap.add(mesh(new THREE.CircleGeometry(0.035, 5), new THREE.MeshBasicMaterial({ color: c }), x, 0.031, z, -Math.PI / 2, 0, x * 9));
+  }
+  g.position.set(0, 0, BACK + 0.3); scene.add(g);
+  piece([g], "The chest of drawers", "albums + a scrapbook up top · drawers open soon", SPOTS.chest);
+  const s = new THREE.SpotLight("#ffd9a8", 14, 6, 0.5, 0.6, 1.4);
+  s.position.set(0, H - 0.1, BACK + 2); s.target.position.set(0, 1.2, BACK + 0.3); s.castShadow = true; s.shadow.mapSize.set(512, 512);
+  scene.add(s, s.target);
+}
+
+// back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
+{
+  const c = document.createElement("canvas"); c.width = 64; c.height = 256;
+  const g = c.getContext("2d");
+  g.fillStyle = "#1b1b2f"; g.fillRect(0, 0, 64, 256);
+  for (const [y, col] of [[40, "#ff2fa0"], [90, "#39ff88"], [140, "#ffe14d"], [190, "#2fd1ff"]]) { g.fillStyle = col; g.fillRect(0, y, 64, 22); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const board = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 1.25, 8, 16), new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 }));
+  board.scale.z = 0.12; board.position.set(3.6, 0.82, BACK + 0.25); board.rotation.set(-0.1, 0, -0.12); board.castShadow = true; scene.add(board);
+  piece([board], "Snowboard", "leaning in the corner since the '90s", SPOTS.snowboard);
+
+  const blades = new THREE.Group();
+  const boot = new THREE.MeshStandardMaterial({ color: "#2a9d8f", roughness: 0.5 });
+  const cuff = new THREE.MeshStandardMaterial({ color: "#5b2a86", roughness: 0.5 });
+  const wheel = new THREE.MeshStandardMaterial({ color: "#ffe14d", roughness: 0.4 });
+  for (const x of [-0.12, 0.12]) {
+    const b = new THREE.Group();
+    b.add(mesh(new THREE.BoxGeometry(0.11, 0.12, 0.3), boot, 0, 0.12, 0));
+    b.add(mesh(new THREE.BoxGeometry(0.11, 0.16, 0.13), cuff, 0, 0.26, -0.08));
+    for (let i = 0; i < 4; i++) b.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.025, 16), wheel, 0, 0.035, -0.11 + i * 0.075, 0, 0, Math.PI / 2));
+    b.position.x = x; b.rotation.y = x * 2; b.traverse(m => { m.castShadow = true; }); blades.add(b);
+  }
+  blades.position.set(2.7, 0, BACK + 0.4); blades.rotation.y = -0.5; scene.add(blades);
+  piece([blades], "Rollerblades", "four wheels in a row, the only way to get around", SPOTS.rollerblades);
+}
+
+// a few slow motes of light drifting about: the "magical" part of the cabin
+const motes = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(
+  Array.from({ length: 120 }, (_, i) => [((i * 97) % 80) / 10 - 4, ((i * 53) % 28) / 10 + 0.1, ((i * 31) % 80) / 10 - 4]).flat(), 3)),
+  new THREE.PointsMaterial({ color: "#ffd38a", size: 0.03, transparent: true, opacity: 0.7, depthWrite: false }));
+scene.add(motes);
+
+// ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
+walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
+  onFrame: now => { motes.rotation.y = now * 0.00002; motes.position.y = Math.sin(now * 0.0004) * 0.05; } });
+</script>
+</html>
