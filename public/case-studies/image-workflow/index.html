@@ -134,7 +134,7 @@ details td, details th { border-bottom: 1px solid var(--line); padding: 3px 14px
 
   <section id="grew">
     <h2>How it grew</h2>
-    <p>Most of it was built in two fast stretches, late September and October 2025 (175 commits that month alone), then a push in December. From January on it was in steady use, with only small fixes.</p>
+    <p>Most of it was built in two fast stretches, late September and October 2025 (175 commits that month alone), then a push in December. After that the commits thin out to a handful a month.</p>
     <figure>
       <div class="chart" id="chart"></div>
       <figcaption>Commits per week, Sept 15, 2025 to Apr 26, 2026 · from the repo's git history</figcaption>
@@ -144,7 +144,7 @@ details td, details th { border-bottom: 1px solid var(--line); padding: 3px 14px
 
   <section id="next">
     <h2>What came next</h2>
-    <p>Image Workflow was retired in October 2026, replaced by PickKit, a newer tool that carries the same ideas forward.</p>
+    <p>Image Workflow has since been retired, replaced by PickKit, a newer tool.</p>
   </section>
 
   <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
@@ -169,7 +169,9 @@ chart.addEventListener("pointerover", e => {
   const i = e.target.dataset?.i; if (i === undefined) return;
   const [d, n] = WEEKS[i], r = e.target.getBoundingClientRect(), c = chart.getBoundingClientRect();
   tip.textContent = `week of ${fmt(d)}: ${n} commit${n === 1 ? "" : "s"}`; tip.hidden = false;
-  tip.style.left = `${Math.min(Math.max(r.left + r.width / 2 - c.left, 90), c.width - 90)}px`; tip.style.top = `${y(Math.max(n, 8)) / H * c.height}px`;
+  // centred on the bar, but never past either edge of the chart: clamp by the label's own half-width
+  const half = tip.offsetWidth / 2, mid = r.left + r.width / 2 - c.left;
+  tip.style.left = `${c.width < 2 * half ? c.width / 2 : Math.min(Math.max(mid, half), c.width - half)}px`; tip.style.top = `${y(Math.max(n, 8)) / H * c.height}px`;
 });
 chart.addEventListener("pointerleave", () => { tip.hidden = true; });
 document.getElementById("table").append(...WEEKS.filter(([, n]) => n).map(([d, n]) => { const tr = document.createElement("tr"); tr.innerHTML = `<td>${fmt(d)}</td><td>${n}</td>`; return tr; }));
