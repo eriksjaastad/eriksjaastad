@@ -28,12 +28,50 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--d
 #caption b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.02em; } #caption span { font: 13px var(--mono); color: #ffc46b; }
 body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focused #hint { opacity: 0; }  /* both sit at the bottom */
 #hint .touch { display: none; } @media (hover: none) { #hint .desk { display: none; } #hint .touch { display: inline; } }
+/* reading an album: the book fills the screen over the room; a photo opens over the book */
+/* both are modal <dialog>s: the browser keeps focus inside the top one, makes the rest inert and closes it on Escape */
+dialog { border: 0; padding: 12px; box-sizing: border-box; width: 100vw; height: 100dvh; max-width: none; max-height: none; background: transparent; color: var(--ink); place-items: center;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr); }  /* one cell the size of the screen, so children can use 100% */
+dialog[open] { display: grid; }
+dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
+/* the book never outgrows the screen: its pages scroll between the title and the buttons */
+#book .wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(94vw, 1040px); max-height: 100%; }
+#book header { display: flex; justify-content: space-between; align-items: baseline; width: 100%; }
+#book h2 { margin: 0; font-size: 22px; font-weight: 800; } #book .count { font: 12px var(--mono); color: var(--muted); }
+.spread { display: flex; width: 100%; flex: 0 1 auto; min-height: 0; overflow: auto; background: #efe6d2; border-radius: 6px; box-shadow: 0 30px 80px rgba(0,0,0,.6); animation: turn .35s ease-out; }
+.scrap .spread { background: #fbd7e5; }
+@keyframes turn { from { opacity: 0; transform: translateX(var(--from, 0)); } }
+.page { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 26px; align-content: start; }
+.page[hidden] { display: none; }
+.page + .page { border-left: 2px solid rgba(0,0,0,.12); }
+.page button { all: unset; cursor: zoom-in; background: #fff; padding: 6px 6px 20px; box-shadow: 0 4px 12px rgba(0,0,0,.25); transform: rotate(var(--tilt)); }
+.page button:focus-visible { outline: 2px solid var(--neon); }
+.page img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.scrap .page button:nth-child(2n) { border-radius: 50% 50% 8px 8px; } /* scrapbook cut-outs */
+#book nav { display: flex; gap: 10px; }
+#book nav button, #book .close, #photo .close { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+#book nav button:disabled { opacity: .35; cursor: default; }
+#book nav button:hover:not(:disabled), #book .close:hover, #photo .close:hover { border-color: var(--neon); color: var(--neon); }
+/* the photo dialog scrolls, and auto margins centre the print only while it fits, so its top is always reachable */
+#photo { overflow: auto; } #photo figure { margin: auto; display: grid; gap: 10px; justify-items: center; }
+/* fits by width and height, so landscape and portrait prints are whole on any screen */
+#photo img { display: block; max-width: calc(100vw - 48px); max-height: calc(100dvh - 130px); width: auto; height: auto; background: #fff; padding: 10px 10px 30px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+#photo figcaption { font: 13px var(--mono); color: #ffc46b; }
+@media (max-width: 700px) { .page { padding: 16px; gap: 10px; } }
 </style>
 <div id="stage"></div>
 <header id="title" class="chrome"><h1>Flashback</h1><p>a cabin full of the '90s · still moving in</p></header>
 <a id="home" class="chrome" href="/">Home</a>
 <div id="hint" class="chrome"><span class="desk">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click something to walk to it</span><span class="touch">drag to look · pinch to walk · tap something</span></div>
 <div id="caption" class="chrome" aria-live="polite"><b></b><span></span></div>
+<dialog id="book" aria-labelledby="bookTitle">
+  <div class="wrap">
+    <header><h2 id="bookTitle"></h2><span class="count"></span><button class="close">Close</button></header>
+    <div class="spread"></div>
+    <nav><button class="prev">‹ Back</button><button class="next" autofocus>Turn ›</button></nav>
+  </div>
+</dialog>
+<dialog id="photo" aria-label="Photo"><figure><img alt=""><figcaption></figcaption><button class="close">Back to the album</button></figure></dialog>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
 </script>
@@ -42,6 +80,7 @@ import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
+import { BOOKS, pager } from "./albums.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -195,7 +234,7 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
     scrap.add(mesh(new THREE.CircleGeometry(0.035, 5), new THREE.MeshBasicMaterial({ color: c }), x, 0.031, z, -Math.PI / 2, 0, x * 9));
   }
   g.position.set(0, 0, BACK + 0.3); scene.add(g);
-  piece([g], "The chest of drawers", "albums + a scrapbook up top · tap a drawer or a door", SPOTS.chest);
+  piece([g], "The chest of drawers", "tap an album, the scrapbook, a drawer or a door", SPOTS.chest);
   const s = new THREE.SpotLight("#ffd9a8", 14, 6, 0.5, 0.6, 1.4);
   s.position.set(0, H - 0.1, BACK + 2); s.target.position.set(0, 1.2, BACK + 0.3); s.castShadow = true; s.shadow.mapSize.set(512, 512);
   scene.add(s, s.target);
@@ -259,13 +298,79 @@ const motes = new THREE.Points(new THREE.BufferGeometry().setAttribute("position
   new THREE.PointsMaterial({ color: "#ffd38a", size: 0.03, transparent: true, opacity: 0.7, depthWrite: false }));
 scene.add(motes);
 
+// ---------- reading an album: an overlay over the room, pages a spread at a time (one on a phone) ----------
+// Every page of the open book is built once; turning pages only shows and hides them, so the button you are on is
+// never replaced and the browser's own focus return (closing a photo) always has somewhere to go.
+const bookEl = document.getElementById("book"), photoEl = document.getElementById("photo"), spreadEl = bookEl.querySelector(".spread");
+const perView = () => innerWidth < 700 ? 1 : 2;
+let reading = null;  // { title, pages, per, pg } while a book is open
+function openBook(name) {
+  reading = { ...BOOKS[name], per: perView(), pg: pager(BOOKS[name].pages.length, perView()) };
+  bookEl.classList.toggle("scrap", name === "scrapbook");
+  document.getElementById("bookTitle").textContent = reading.title;
+  spreadEl.replaceChildren(...reading.pages.map((photos, i) => {
+    const page = document.createElement("div"); page.className = "page";
+    photos.forEach((photo, k) => {
+      const b = document.createElement("button"); b.style.setProperty("--tilt", `${((i * 7 + k * 5) % 7 - 3) * 0.6}deg`);
+      b.setAttribute("aria-label", `open ${photo.note}`);
+      const img = new Image(); img.src = photo.src; img.alt = photo.note; img.loading = "lazy"; b.append(img);  // hidden pages don't load
+      b.onclick = () => showPhoto(photo); page.append(b);
+    });
+    return page;
+  }));
+  bookEl.showModal(); show(0);
+}
+// show the pager's pages; dir slides them in from that side (0: no slide)
+function show(dir) {
+  const { pages, pg } = reading, s = pg.showing;
+  [...spreadEl.children].forEach((page, i) => { page.hidden = !s.includes(i); });
+  if (dir) { spreadEl.style.setProperty("--from", `${dir * 40}px`); spreadEl.style.animation = "none"; void spreadEl.offsetWidth; spreadEl.style.animation = ""; }
+  bookEl.querySelector(".count").textContent = `page${s.length > 1 ? `s ${s[0] + 1}–${s.at(-1) + 1}` : ` ${s[0] + 1}`} of ${pages.length}`;
+  bookEl.querySelector(".prev").disabled = !pg.canPrev; bookEl.querySelector(".next").disabled = !pg.canNext;
+  keepFocus();
+}
+// with the book on top, focus must be on something you can see and use: if it is on a page just hidden, a button
+// just disabled, or nowhere in the book, it goes to Turn, Back or Close, the first that is enabled
+function keepFocus() {
+  if (!bookEl.open || photoEl.open) return;
+  const a = document.activeElement;
+  if (bookEl.contains(a) && a !== bookEl && !a.disabled && !a.closest(".page[hidden]")) return;
+  [".next", ".prev", ".close"].map(c => bookEl.querySelector(c)).find(b => !b.disabled).focus();
+}
+function showPhoto(photo) {
+  photoEl.querySelector("img").src = photo.src; photoEl.querySelector("img").alt = photo.note;
+  photoEl.querySelector("figcaption").textContent = photo.note; photoEl.showModal();
+}
+const turn = dir => { if (dir > 0 ? reading.pg.canNext : reading.pg.canPrev) { dir > 0 ? reading.pg.next() : reading.pg.prev(); show(dir); } };
+bookEl.querySelector(".next").onclick = () => turn(1);
+bookEl.querySelector(".prev").onclick = () => turn(-1);
+bookEl.querySelector(".close").onclick = () => bookEl.close();
+photoEl.querySelector(".close").onclick = () => photoEl.close();
+bookEl.addEventListener("click", e => { if (e.target === bookEl) bookEl.close(); });  // outside the book
+photoEl.addEventListener("click", e => { if (e.target === photoEl || e.target.tagName === "IMG") photoEl.close(); });
+bookEl.addEventListener("close", () => { reading = null; });
+photoEl.addEventListener("close", keepFocus);  // the browser returns focus to the photo's button; if its page is hidden now, move on
+// while reading, the walker's window listener never sees keydown (capture runs first); Escape still closes the top
+// dialog, which is the browser's default action. Arrows turn the pages when the book is on top.
+document.addEventListener("keydown", e => {
+  if (!reading) return;
+  e.stopPropagation();
+  if (!photoEl.open && e.key === "ArrowRight") turn(1);
+  else if (!photoEl.open && e.key === "ArrowLeft") turn(-1);
+}, true);
+// a phone turning between one page and two re-lays the book around the page you were on
+addEventListener("resize", () => {
+  if (!reading || perView() === reading.per) return;
+  reading.per = perView(); reading.pg.view(reading.per); show(0);
+});
+
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
 const open = hinges();
 let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
-  onTap: hit => {  // a tap on a drawer or door (or its knob) flips it
-    let o = hit; while (o && !OPENABLE.includes(o.name)) o = o.parent;
-    if (o) open.toggle(o.name);
+  onTap: hit => {  // a tap on an album or the scrapbook opens it; on a drawer or door (or its knob) flips it
+    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name)) o = o.parent;
+    if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
     return !!o;
   },
   onFrame: now => {
