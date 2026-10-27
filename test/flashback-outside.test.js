@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { MAP, find, open, mover, STEP, DIRS } from "../public/flashback/outside/maze.js";
+import { MAP, find, open, mover, STEP, DIRS, keyInput } from "../public/flashback/outside/maze.js";
 
 // the shortest route from the start to the door, by breadth-first search over open tiles
 function route(map = MAP) {
@@ -109,4 +109,23 @@ test("walking: each input owns its hold: two holding the same way keep you going
   const m = mover({ x: 1, y: 9 }); m.press("right", "pointer1"); m.release("right", "key");  // a release by an input that never pressed
   let p; for (let i = 0; i < 6; i++) p = m.frame(STEP / 2);
   assert.ok(p.x >= 4, `is ignored: still walking (${p.x})`);
+});
+
+test("keys: an arrow and its number-pad twin (NumLock off) are separate holds; letting go of either, in either order, leaves the other walking", () => {
+  const pairs = { up: ["ArrowUp", "Numpad8", { x: 17, y: 15 }], down: ["ArrowDown", "Numpad2", { x: 17, y: 13 }],
+    left: ["ArrowLeft", "Numpad4", { x: 17, y: 9 }], right: ["ArrowRight", "Numpad6", { x: 1, y: 9 }] };
+  for (const [dir, [arrow, pad, start]] of Object.entries(pairs)) {
+    const a = keyInput({ key: arrow, code: arrow }), b = keyInput({ key: arrow, code: pad });
+    assert.deepEqual([a[0], b[0]], [dir, dir]); assert.notEqual(a[1], b[1]);
+    for (const [first, second] of [[a, b], [b, a]]) {
+      const m = mover(start), half = () => m.frame(STEP / 2);
+      m.press(...first); m.press(...second); half(); half();
+      m.release(...first); let p; for (let i = 0; i < 2; i++) p = half();
+      assert.ok(p.moving || Math.abs(p.x - start.x) + Math.abs(p.y - start.y) >= 2, `${dir}: still walking after ${first[1]} lets go`);
+      m.release(...second); for (let i = 0; i < 4; i++) p = half();
+      assert.ok(!p.moving, `${dir}: stops once ${second[1]} lets go too`);
+    }
+  }
+  assert.equal(keyInput({ key: "a", code: "KeyA" }), null); assert.equal(keyInput({ key: "Enter", code: "Enter" }), null);
+  assert.equal(keyInput({ key: "ArrowUp" })[1], "key:ArrowUp", "a synthetic event without a code still has a source");
 });

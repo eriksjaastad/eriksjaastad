@@ -31,6 +31,15 @@ export function find(ch, map = MAP) {
 export const open = (x, y, map = MAP) => y >= 0 && y < map.length && x >= 0 && x < map[y].length && OPEN.has(map[y][x]);
 
 export const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+// A keyboard event as [direction, source], or null for keys that don't walk. The direction comes from what the key
+// means (an arrow, or the number pad's arrows with NumLock off); the source is the physical key (event.code), so an
+// arrow key and its number-pad twin held together are two holds, and letting go of one leaves the other walking.
+const ARROWS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+export function keyInput({ key, code }) {
+  const dir = ARROWS[key];
+  return dir ? [dir, `key:${code || key}`] : null;
+}
 export const STEP = 0.14;  // seconds to walk one tile
 
 // Hold a direction and you keep walking that way, a tile at a time; the last direction pressed (and still held)
