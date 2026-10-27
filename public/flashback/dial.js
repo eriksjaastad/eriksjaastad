@@ -80,3 +80,38 @@ export function atTheTone(startMs, lead = 7) {
   const secs = Number(parts.second);
   return { toneAt, words: `${parts.hour}:${parts.minute} ${parts.dayPeriod}${secs ? ` and ${secs} seconds` : " exactly"}` };
 }
+
+// Place a call. Every tone is scheduled on the audio clock up front, so the ring cadence and the time line's tone
+// can't drift if timers fire late (a busy or background tab); the voice waits on a timer, and if that timer fires
+// early by the audio clock (they can disagree) it waits the rest, so it never speaks over a ring. Dependencies are
+// passed in so node tests can run it on a fake clock:
+//   now() audio-clock seconds · wall() epoch ms · tone(freqs, at, length, gain) at an audio time ·
+//   later(seconds, fn) a timer · speak(text) · temp() Seattle's temperature or null
+// Returns cancel(), which stops the timers this call set (the page stops the sounds).
+export const SIT = [913.8, 1370.6, 1776.7];  // the three rising "not in service" tones
+export const SAYINGS = {
+  none: "We're sorry. The number you have dialed is not in service. Please check the number and dial again.",
+  closures: "School closure information. Due to snow and ice, all Seattle area schools are closed today. Stay home, have some cocoa, and don't forget your mittens. Again: all schools are closed today.",
+};
+export function placeCall(line, { now, wall, tone, later, speak, temp }) {
+  const t0 = now(), timers = [];
+  let live = true;
+  // run fn once the audio clock reaches t0 + when; a timer that fires early by that clock waits the rest
+  const at = (when, fn) => timers.push(later(Math.max(0, t0 + when - now()), () => {
+    if (!live) return;
+    if (t0 + when - now() > 1e-3) at(when, fn); else fn();
+  }));
+  if (line === "none") {
+    SIT.forEach((f, i) => tone([f], t0 + 0.3 + i * 0.33, 0.28, 0.08));
+    at(1.4, () => speak(SAYINGS.none));
+  } else {
+    for (const [s, len] of RINGS) tone([440, 480], t0 + s, len, 0.08);
+    at(ANSWER, () => {
+      if (line !== "time") { speak(SAYINGS.closures); return; }
+      const { toneAt, words } = atTheTone(wall()), t = temp();
+      speak(`At the tone, Seattle time will be ${words}. ${t === null ? "The temperature isn't available right now." : `The temperature is ${t} degrees.`}`);
+      tone([1000], now() + (toneAt - wall()) / 1000, 0.5, 0.06);  // on the audio clock, at the moment it names
+    });
+  }
+  return { cancel() { live = false; } };
+}

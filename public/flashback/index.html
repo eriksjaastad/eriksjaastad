@@ -106,7 +106,7 @@ import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
-import { dialer, DIGITS, restAngle, STOP, lineFor, RINGS, ANSWER, atTheTone } from "./dial.js";
+import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -456,7 +456,7 @@ addEventListener("resize", () => {
 // ---------- the rotary phone: a dial you really dial, then whoever answers ----------
 const dialEl = document.getElementById("dial"), wheel = document.getElementById("wheel"), svgEl = dialEl.querySelector("svg");
 const lineEl = dialEl.querySelector(".line"), numberEl = dialEl.querySelector(".number");
-let phoneDial = null, audio = null, call = null;
+let phoneDial = null, audio = null, call = null, playing = [];  // call: the current placeCall; playing: every oscillator started while the dial is open
 {
   const at = (deg, r) => [Math.cos(deg * Math.PI / 180) * r, Math.sin(deg * Math.PI / 180) * r];
   const ns = "http://www.w3.org/2000/svg";
@@ -484,9 +484,10 @@ svgEl.addEventListener("pointerup", e => {
 svgEl.addEventListener("pointercancel", e => phoneDial?.cancel(e.pointerId));
 // sounds: a click per pulse as the wheel comes home, the ring, the three rising "not in service" tones, and voices
 function sound() { audio ??= new AudioContext(); if (audio.state === "suspended") audio.resume(); return audio; }
-function tone(freqs, start, length, gain = 0.08) {
+// a tone at an audio-clock time; every one is kept so closing the dial silences clicks and calls alike
+function tone(freqs, at, length, gain = 0.08) {
   const a = sound(), g = a.createGain(); g.gain.value = gain; g.connect(a.destination);
-  for (const f of freqs) { const o = a.createOscillator(); o.frequency.value = f; o.connect(g); o.start(a.currentTime + start); o.stop(a.currentTime + start + length); call?.stops.push(o); }
+  for (const f of freqs) { const o = a.createOscillator(); o.frequency.value = f; o.connect(g); o.start(at); o.stop(at + length); playing.push(o); }
 }
 const say = text => { lineEl.textContent = text; if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; speechSynthesis.speak(u); } };
 async function seattleTemp() {  // Seattle's temperature right now, from Open-Meteo (no key, no visitor location); null if it can't be had
@@ -497,30 +498,17 @@ async function seattleTemp() {  // Seattle's temperature right now, from Open-Me
     return Number.isFinite(t) ? Math.round(t) : null;
   } catch { return null; }
 }
-// a call follows dial.js's plan: two rings (2 s on, 4 s off), then the line answers once ringing has ended
+// a call: dial.js places it on the audio clock (rings, tones) and a timer for the voice; captions show what's said
 function answer(line) {
-  call = { stops: [], timers: [] };
-  const me = call, later = (s, fn) => me.timers.push(setTimeout(() => { if (call === me) fn(); }, s * 1000));
-  if (line === "none") {
-    lineEl.textContent = "...";
-    [913.8, 1370.6, 1776.7].forEach((f, i) => tone([f], 0.3 + i * 0.33, 0.28));
-    later(1.4, () => say("We're sorry. The number you have dialed is not in service. Please check the number and dial again."));
-    return;
-  }
-  lineEl.textContent = "ringing...";
-  for (const [at, len] of RINGS) later(at, () => tone([440, 480], 0, len));
   let temp = null;
-  if (line === "time") seattleTemp().then(t => { temp = t; });  // ready long before the answer (3 s timeout); if not, it's unavailable
-  later(ANSWER, () => {
-    if (line !== "time") { say("School closure information. Due to snow and ice, all Seattle area schools are closed today. Stay home, have some cocoa, and don't forget your mittens. Again: all schools are closed today."); return; }
-    const { toneAt, words } = atTheTone(Date.now());  // the time named is the time the tone sounds
-    say(`At the tone, Seattle time will be ${words}. ${temp === null ? "The temperature isn't available right now." : `The temperature is ${temp} degrees.`}`);
-    later((toneAt - Date.now()) / 1000, () => tone([1000], 0, 0.5, 0.06));
-  });
+  if (line === "time") seattleTemp().then(t => { temp = t; });  // ready long before the answer (3 s timeout); if not, unavailable
+  lineEl.textContent = line === "none" ? "..." : "ringing...";
+  call = placeCall(line, { now: () => sound().currentTime, wall: () => Date.now(), tone, later: (s, fn) => setTimeout(fn, s * 1000), speak: say, temp: () => temp });
 }
 function hangUp() {
-  if (call) { for (const t of call.timers) clearTimeout(t); for (const o of call.stops) { try { o.stop(); } catch {} } }
-  call = null; if ("speechSynthesis" in window) speechSynthesis.cancel();
+  call?.cancel(); call = null;
+  for (const o of playing) { try { o.stop(); } catch { /* already stopped */ } }
+  playing = []; if ("speechSynthesis" in window) speechSynthesis.cancel();
   phoneDial?.hangUp(); numberEl.textContent = ""; lineEl.textContent = "drag a number round to the metal stop";
 }
 function openDial() { phoneDial = dialer(); hangUp(); dialEl.showModal(); }
@@ -531,7 +519,7 @@ let dialLast = null;
 (function spin(now) {  // draw the wheel springing back, clicking once per hole it passes; dial a number once it's complete
   if (phoneDial) {
     const { rotation, pulses } = phoneDial.frame(dialLast === null ? 0 : (now - dialLast) / 1000);
-    for (let i = 0; i < pulses; i++) tone([1800], i * 0.025, 0.012, 0.05);  // one click per pulse, even if a slow frame passed several
+    for (let i = 0; i < pulses; i++) tone([1800], sound().currentTime + i * 0.025, 0.012, 0.05);  // one click per pulse, even if a slow frame passed several
     wheel.setAttribute("transform", `rotate(${rotation})`);
     const line = lineFor(phoneDial.number);
     if (line && !call && rotation === 0) answer(line);

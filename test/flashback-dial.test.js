@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { dialer, DIGITS, travel, restAngle, STOP, SLACK, RETURN, LENGTH, lineFor, DIRECTORY, RINGS, ANSWER, atTheTone } from "../public/flashback/dial.js";
+import { dialer, DIGITS, travel, restAngle, STOP, SLACK, RETURN, LENGTH, lineFor, DIRECTORY, RINGS, ANSWER, atTheTone, placeCall, SIT, SAYINGS } from "../public/flashback/dial.js";
 
 // pull a digit's hole all the way round to the stop in small moves, let go, and let the wheel come home
 function dial(d, digit, { short = 0 } = {}) {
@@ -116,4 +116,53 @@ test("call: the time line names the time its tone sounds, a ten-second mark at l
     assert.ok(r.words.startsWith(seattle(r.toneAt).replace(/ (AM|PM)$/, "")), "the clock it names is the tone's");
   }
   assert.equal(atTheTone(Date.UTC(2026, 9, 27, 21, 59, 52)).words, "3:00 PM exactly"); assert.equal(atTheTone(Date.UTC(2026, 9, 27, 21, 59, 43)).words, "2:59 PM and 50 seconds");
+});
+
+// a fake audio clock and timers: timers run on `time`; `late` delays every timer; `rate` < 1 makes the audio clock run
+// slow against the timers, so timers fire early by the audio clock (they can disagree in a real browser)
+function phoneRig({ late = 0, rate = 1, wallStart = Date.UTC(2026, 9, 27, 21, 59, 50), temp = 53 } = {}) {
+  let time = 0, queue = [];
+  const tones = [], said = [], audio = () => 100 + time * rate;
+  const deps = {
+    now: audio, wall: () => wallStart + (audio() - 100) * 1000,
+    tone: (freqs, at, len) => tones.push({ freqs, at: at - 100, len }),
+    later: (s, fn) => { const t = { due: time + s + late, fn }; queue.push(t); return t; },
+    speak: text => said.push({ at: audio() - 100, text }), temp: () => temp,
+  };
+  const run = until => {
+    for (let n = 0; n < 10000; n++) { queue.sort((a, b) => a.due - b.due); const t = queue[0]; if (!t || t.due > until) break; queue.shift(); time = Math.max(time, t.due); t.fn(); }
+    time = until;
+  };
+  return { deps, tones, said, run };
+}
+
+test("call: rings and tones sit on the audio clock, so late timers can't move them or make the voice talk over a ring", () => {
+  for (const late of [0, 0.5, 3]) for (const line of ["time", "closures"]) {
+    const r = phoneRig({ late }); placeCall(line, r.deps); r.run(30);
+    const rings = r.tones.filter(t => t.freqs[0] === 440);
+    assert.deepEqual(rings.map(t => [t.at, t.len]), RINGS, `${line} late ${late}: rings on schedule`);
+    assert.equal(r.said.length, 1); assert.ok(r.said[0].at >= ANSWER, `${line} late ${late}: speaks at ${r.said[0].at}, after the rings`);
+  }
+  const r = phoneRig({ rate: 0.8 }); placeCall("closures", r.deps); r.run(30);
+  assert.ok(r.said[0].at >= ANSWER - 1e-3, `timers firing early by a slow audio clock still wait (${r.said[0].at})`);
+});
+
+test("call: the time line's tone sounds on the audio clock at the moment it names, even when the voice starts late", () => {
+  for (const late of [0, 3, 7]) {
+    const wallStart = Date.UTC(2026, 9, 27, 21, 59, 50), r = phoneRig({ late, wallStart }); placeCall("time", r.deps); r.run(40);
+    const beep = r.tones.find(t => t.freqs[0] === 1000), spokeAt = r.said[0].at;
+    const named = atTheTone(wallStart + spokeAt * 1000);
+    assert.ok(r.said[0].text.includes(named.words) && r.said[0].text.includes("53 degrees"), r.said[0].text);
+    assert.ok(Math.abs(wallStart + beep.at * 1000 - named.toneAt) < 1, `late ${late}: tone at the named moment`);
+  }
+  const r = phoneRig({ temp: null }); placeCall("time", r.deps); r.run(30);
+  assert.ok(r.said[0].text.includes("isn't available"));
+});
+
+test("call: not-in-service plays the three rising tones then the message; hanging up stops anything still to come", () => {
+  let r = phoneRig(); placeCall("none", r.deps); r.run(10);
+  assert.deepEqual(r.tones.map(t => t.freqs[0]), SIT); assert.ok(r.tones.every((t, i) => i === 0 || t.at > r.tones[i - 1].at));
+  assert.equal(r.said[0].text, SAYINGS.none);
+  r = phoneRig(); const c = placeCall("time", r.deps); r.run(3); c.cancel(); r.run(40);
+  assert.equal(r.said.length, 0, "hung up during the rings: nobody answers");
 });
