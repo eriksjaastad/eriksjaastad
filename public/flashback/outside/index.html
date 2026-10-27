@@ -16,8 +16,8 @@
   color-scheme: dark;
 }
 html, body { height: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; display: grid; place-items: center; }
-canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; }
+canvas { position: fixed; image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
 .chrome { position: fixed; z-index: 2; }
 #title { top: max(16px, env(safe-area-inset-top)); left: 18px; pointer-events: none; }
 #title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
@@ -45,10 +45,13 @@ body.entering #fade { opacity: 1; }
 import { MAP, mover, find } from "./maze.js";
 
 const T = 8, screen = document.getElementById("screen"), ctx = screen.getContext("2d");
-// scale the 160x144 screen up by whole pixels so it stays crisp, as large as fits under the header
+// scale the 160x144 screen up by whole pixels so it stays crisp, as large as fits between the header and the hint,
+// or on touch screens the D-pad, and centre it in that space so the pad never covers the maze
+const pad = document.getElementById("pad");
 function fit() {
-  const k = Math.max(1, Math.floor(Math.min((innerWidth - 16) / 160, (innerHeight - 150) / 144)));
-  screen.style.width = `${160 * k}px`; screen.style.height = `${144 * k}px`;
+  const top = 64, bottom = getComputedStyle(pad).display === "none" ? 44 : innerHeight - pad.getBoundingClientRect().top + 10;
+  const room = innerHeight - top - bottom, k = Math.max(1, Math.floor(Math.min((innerWidth - 16) / 160, room / 144)));
+  Object.assign(screen.style, { width: `${160 * k}px`, height: `${144 * k}px`, left: `${(innerWidth - 160 * k) / 2}px`, top: `${top + Math.max(0, (room - 144 * k) / 2)}px` });
 }
 fit(); addEventListener("resize", fit);
 
@@ -92,12 +95,15 @@ function hero(g, x, y, facing, frame) {
 // ---------- input: arrow keys, or the D-pad's buttons held down ----------
 const me = mover(find("S"));
 const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
-addEventListener("keydown", e => { if (KEYS[e.key]) { e.preventDefault(); me.press(KEYS[e.key]); } });
+addEventListener("keydown", e => { if (KEYS[e.key]) { e.preventDefault(); me.press(KEYS[e.key]); } });  // autorepeat: a no-op
 addEventListener("keyup", e => { if (KEYS[e.key]) me.release(KEYS[e.key]); });
-addEventListener("blur", () => me.releaseAll());
+const pads = [];  // [button, its fingers]
+addEventListener("blur", () => { me.releaseAll(); for (const [b, fingers] of pads) { fingers.clear(); b.classList.remove("on"); } });
+// each finger is its own hold: two on one button, or a finger and a key, keep walking until all let go
 for (const b of document.querySelectorAll("#pad button")) {
-  const dir = b.dataset.dir, up = () => { me.release(dir); b.classList.remove("on"); };
-  b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture(e.pointerId); me.press(dir); b.classList.add("on"); });
+  const dir = b.dataset.dir, fingers = new Set(); pads.push([b, fingers]);
+  const up = e => { me.release(dir, `pointer${e.pointerId}`); fingers.delete(e.pointerId); b.classList.toggle("on", fingers.size > 0); };
+  b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture(e.pointerId); fingers.add(e.pointerId); me.press(dir, `pointer${e.pointerId}`); b.classList.add("on"); });
   for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(t, up);
   b.addEventListener("contextmenu", e => e.preventDefault());
 }

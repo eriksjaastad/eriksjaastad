@@ -59,13 +59,14 @@ test("walking: the last arrow pressed wins, and letting it go falls back to the 
 });
 
 test("walking: any presses, releases and frame gaps keep you on open ground and never more than one tile from the last", () => {
-  const ev = fc.oneof(fc.record({ press: fc.constantFrom("up", "down", "left", "right", "jump") }), fc.record({ release: fc.constantFrom("up", "down", "left", "right") }),
+  const src = fc.constantFrom("key", "pointer1", "pointer2");
+  const ev = fc.oneof(fc.record({ press: fc.constantFrom("up", "down", "left", "right", "jump"), src }), fc.record({ release: fc.constantFrom("up", "down", "left", "right"), src }),
     fc.record({ dt: fc.oneof(fc.double({ min: -1, max: 2 }), fc.constant(NaN), fc.constant(Infinity)) }), fc.constant({ all: true }));
   fc.assert(fc.property(fc.array(ev, { maxLength: 60 }), events => {
     const m = mover();
     let prev = m.frame(0);
     for (const e of events) {
-      if (e.press) m.press(e.press); else if (e.release) m.release(e.release); else if (e.all) m.releaseAll();
+      if (e.press) m.press(e.press, e.src); else if (e.release) m.release(e.release, e.src); else if (e.all) m.releaseAll();
       else {
         const p = m.frame(e.dt), tile = { x: Math.round(p.x), y: Math.round(p.y) };
         assert.ok(open(Math.floor(p.x), Math.floor(p.y)) && open(Math.ceil(p.x), Math.ceil(p.y)), JSON.stringify(p));
@@ -85,4 +86,27 @@ test("walking: a long pause between frames moves you at most 0.1 s worth; once o
   assert.ok(p.inside, "stepped onto the door");
   m.release("up"); m.press("down"); for (let i = 0; i < 10; i++) p = m.frame(0.1);
   assert.ok(p.inside && p.x === door.x && p.y === door.y, JSON.stringify(p));
+});
+
+test("walking: a held key's autorepeat adds nothing, so letting go stops after the current step", () => {
+  const m = mover({ x: 1, y: 9 }), half = () => m.frame(STEP / 2);
+  m.press("right"); let p;
+  for (let i = 0; i < 4; i++) { m.press("right"); p = half(); }  // repeat keydowns while held, two tiles' worth
+  m.press("right"); m.release("right");  // one more repeat lands mid-step, just before the key comes up
+  p = half(); p = half(); p = half();
+  assert.ok(!p.moving && p.x === 4, `finished the step under way and stopped at ${p.x}, not a tile further`);
+});
+
+test("walking: each input owns its hold: two holding the same way keep you going until both let go", () => {
+  for (const [a, b] of [["key", "pointer1"], ["pointer1", "pointer2"]]) {
+    const m = mover({ x: 1, y: 9 }), half = () => m.frame(STEP / 2);
+    m.press("right", a); m.press("right", b); half(); half();
+    m.release("right", a); let p; for (let i = 0; i < 6; i++) p = half();
+    assert.ok(p.x >= 4, `${a}+${b}: still walking three tiles after ${a} lets go (${p.x})`);
+    m.release("right", b); m.release("right", b); for (let i = 0; i < 3; i++) p = half();
+    assert.ok(!p.moving, `${a}+${b}: stops once both let go`);
+  }
+  const m = mover({ x: 1, y: 9 }); m.press("right", "pointer1"); m.release("right", "key");  // a release by an input that never pressed
+  let p; for (let i = 0; i < 6; i++) p = m.frame(STEP / 2);
+  assert.ok(p.x >= 4, `is ignored: still walking (${p.x})`);
 });

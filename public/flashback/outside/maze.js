@@ -34,14 +34,19 @@ export const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 export const STEP = 0.14;  // seconds to walk one tile
 
 // Hold a direction and you keep walking that way, a tile at a time; the last direction pressed (and still held)
-// wins. A press let go before the next frame still takes its one step. Walls stop you but you still turn to face them. frame(dt) returns where to draw you, in tiles, part-way
+// wins. A press let go before the next frame still takes its one step. Each input (a key, a finger) owns its own
+// hold, so two holding the same way keep you walking until both let go; pressing again what an input already holds
+// (a key's autorepeat) changes nothing. Walls stop you but you still turn to face them. frame(dt) returns where to draw you, in tiles, part-way
 // through a step, and `inside` once you have stepped onto the door.
 export function mover(start = find("S"), map = MAP) {
-  const held = [];
+  const held = [];  // [dir, source] in the order pressed
   let at = { ...start }, to = null, t = 0, facing = "up", tapped = null;
-  const release = dir => { const i = held.indexOf(dir); if (i >= 0) held.splice(i, 1); };
+  const release = (dir, source = "key") => { const i = held.findIndex(([d, s]) => d === dir && s === source); if (i >= 0) held.splice(i, 1); };
   return {
-    press(dir) { if (!DIRS[dir]) return; release(dir); held.push(dir); tapped = dir; },
+    press(dir, source = "key") {
+      if (!DIRS[dir] || held.some(([d, s]) => d === dir && s === source)) return;
+      held.push([dir, source]); tapped = dir;
+    },
     release,
     releaseAll() { held.length = 0; tapped = null; },
     frame(dt) {
@@ -51,7 +56,7 @@ export function mover(start = find("S"), map = MAP) {
           if (t < STEP) break;
           t -= STEP; at = to; to = null;
         }
-        const dir = held.at(-1) ?? tapped; tapped = null;
+        const dir = held.at(-1)?.[0] ?? tapped; tapped = null;
         if (!dir || map[at.y][at.x] === "D") { t = 0; break; }
         facing = dir;
         const [dx, dy] = DIRS[dir];
