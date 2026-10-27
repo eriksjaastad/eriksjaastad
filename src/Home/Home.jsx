@@ -55,7 +55,7 @@ export default function Home() {
           <a className="path" href="https://github.com/eriksjaastad"><b>GitHub →</b><small>github.com/eriksjaastad</small></a>
           <a className="path" href="/gallery/"><b>Art gallery →</b><small>walk my paintings and drawings in three different spaces</small></a>
           <a className="path" href="/websites/"><b>Websites →</b><small>sites I built and run</small></a>
-          <a className="path" href="/flashback/"><b>Flashback →</b><small>a '90s cabin full of the old stuff</small></a>
+          <a className="path" href="/flashback/outside/"><b>Flashback →</b><small>a '90s cabin full of the old stuff</small></a>
         </nav>
         <div className="timeline" aria-label="Machines">
           <div><b>1983 · TI-99/4A</b>Dad's. TV for a monitor, phone in the coupler.</div>
