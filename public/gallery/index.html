@@ -23,6 +23,9 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--d
 #title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
 #home { top: max(14px, env(safe-area-inset-top)); right: 16px; font-size: 14px; color: var(--ink); text-decoration: none; background: rgba(21,20,23,.6); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
 #home:hover { border-color: var(--neon); color: var(--neon); }
+#rooms { top: calc(max(16px, env(safe-area-inset-top)) + 50px); left: 18px; display: flex; gap: 6px; }
+#rooms a { font: 12px var(--mono); color: var(--muted); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; background: rgba(21,20,23,.6); }
+#rooms a:hover, #rooms a[aria-current] { color: var(--ink); border-color: var(--neon); }
 #hint { left: 18px; bottom: max(16px, env(safe-area-inset-bottom)); font: 12px var(--mono); color: var(--muted); pointer-events: none; transition: opacity .4s; }
 #caption { left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 12px); opacity: 0; transition: opacity .4s, transform .4s; pointer-events: none; text-align: center; width: min(92vw, 520px); }
 #caption b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.02em; } #caption span { font: 13px var(--mono); color: #ffc46b; }
@@ -32,6 +35,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 <div id="stage"></div>
 <header id="title" class="chrome"><h1>The gallery</h1><p>the room is up · the art is on its way</p></header>
 <a id="home" class="chrome" href="/">Home</a>
+<nav id="rooms" class="chrome" aria-label="Room"><a href="/gallery/">Gallery</a><a href="/gallery/?room=egypt">Egyptian hall</a></nav>
 <div id="hint" class="chrome"><span class="desk">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click a piece to walk to it</span><span class="touch">drag to look · pinch to walk · tap a piece</span></div>
 <div id="caption" class="chrome" aria-live="polite"><b></b><span></span></div>
 <script type="importmap">
@@ -41,6 +45,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 import * as THREE from "three";
 import { walker } from "./walk.js";
 import { walkThrough } from "./room.js";
+import { ROOMS, COLUMNS, COLUMN_R, styleFrom } from "./rooms.js";
 
 // Room: x -6..6, floor y 0, ceiling y 5, entrance z +6, back wall z -10.
 const W = 6, H = 5, FRONT = 6, BACK = -10;
@@ -72,37 +77,110 @@ function fit() {
 fit();
 addEventListener("resize", fit);
 
-function checker() {
-  const c = document.createElement("canvas"); c.width = c.height = 256;
-  const g = c.getContext("2d");
-  g.fillStyle = "#d8d0c2"; g.fillRect(0, 0, 256, 256);
-  g.fillStyle = "#141418"; g.fillRect(128, 0, 128, 128); g.fillRect(0, 128, 128, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 8); t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  return t;
-}
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK),
-  new THREE.MeshStandardMaterial({ map: checker(), roughness: 0.32, metalness: 0.1 }));
-floor.rotation.x = -Math.PI / 2; floor.position.z = (FRONT + BACK) / 2; floor.receiveShadow = true; scene.add(floor);
+const style = styleFrom(location.search);
+for (const a of document.querySelectorAll("#rooms a")) if (styleFrom(new URL(a.href).search) === style) a.setAttribute("aria-current", "page");
 
-const wallMat = new THREE.MeshStandardMaterial({ color: "#3a3840", roughness: 0.9 });
-function wall(w, h, x, y, z, ry) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
-  m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
+// the classic room: checkered floor, dark walls, a neon baseboard
+function classicShell() {
+  function checker() {
+    const c = document.createElement("canvas"); c.width = c.height = 256;
+    const g = c.getContext("2d");
+    g.fillStyle = "#d8d0c2"; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = "#141418"; g.fillRect(128, 0, 128, 128); g.fillRect(0, 128, 128, 128);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 8); t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return t;
+  }
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK),
+    new THREE.MeshStandardMaterial({ map: checker(), roughness: 0.32, metalness: 0.1 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.z = (FRONT + BACK) / 2; floor.receiveShadow = true; scene.add(floor);
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: "#3a3840", roughness: 0.9 });
+  function wall(w, h, x, y, z, ry) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+    m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
+  }
+  for (const side of [-1, 1]) wall(FRONT - BACK, H, side * W, H / 2, (FRONT + BACK) / 2, -side * Math.PI / 2);
+  wall(2 * W, H, 0, H / 2, BACK, 0);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshStandardMaterial({ color: "#121115" }));
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(0, H, (FRONT + BACK) / 2); scene.add(ceil);
+  // neon baseboard in the site's orange along both side walls
+  const glow = new THREE.MeshBasicMaterial({ color: "#ff6a00" });
+  for (const x of [-W + 0.01, W - 0.01]) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, FRONT - BACK), glow); s.position.set(x, 0.02, (FRONT + BACK) / 2); scene.add(s);
+  }
+  // back wall wash so the far end of the room doesn't fall into black
+  const wash = new THREE.SpotLight("#c9b8ff", 30, 20, 0.7, 0.9, 1.2);
+  wash.position.set(0, H - 0.2, 0); wash.target.position.set(0, 1.5, BACK); scene.add(wash, wash.target);
 }
-for (const side of [-1, 1]) wall(FRONT - BACK, H, side * W, H / 2, (FRONT + BACK) / 2, -side * Math.PI / 2);
-wall(2 * W, H, 0, H / 2, BACK, 0);
-const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshStandardMaterial({ color: "#121115" }));
-ceil.rotation.x = Math.PI / 2; ceil.position.set(0, H, (FRONT + BACK) / 2); scene.add(ceil);
-// neon baseboard in the site's orange along both side walls
-const glow = new THREE.MeshBasicMaterial({ color: "#ff6a00" });
-for (const x of [-W + 0.01, W - 0.01]) {
-  const s = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, FRONT - BACK), glow); s.position.set(x, 0.02, (FRONT + BACK) / 2); scene.add(s);
+
+// the Egyptian hall: sandstone, a starry ceiling, two rows of papyrus columns, light falling in shafts
+function egyptShell() {
+  scene.background = new THREE.Color("#1a120a"); scene.fog = new THREE.Fog("#1a120a", 14, 32);
+  const canvasTex = (w, h, draw, rx = 1, ry = 1) => {
+    const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"));
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+  };
+  const tiles = canvasTex(256, 256, g => {
+    g.fillStyle = "#c8a46c"; g.fillRect(0, 0, 256, 256);
+    g.strokeStyle = "#8c6a3c"; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256); g.strokeRect(0, 0, 128, 256);
+  }, 6, 8);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshStandardMaterial({ map: tiles, roughness: 0.85 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.z = (FRONT + BACK) / 2; floor.receiveShadow = true; scene.add(floor);
+  // walls: plain sandstone with a painted frieze of little glyphs and coloured bands near the top
+  const frieze = canvasTex(512, 512, g => {
+    g.fillStyle = "#b8925a"; g.fillRect(0, 0, 512, 512);
+    for (const [y, c] of [[40, "#1f4e79"], [52, "#b8925a"], [56, "#a8322a"], [130, "#1f4e79"]]) { g.fillStyle = c; g.fillRect(0, y, 512, 8); }
+    g.fillStyle = "#3b2a18";
+    for (let i = 0; i < 16; i++) {  // a row of simple glyph shapes: eyes, birds, reeds
+      const x = 16 + i * 31, k = i % 4;
+      if (k === 0) { g.beginPath(); g.ellipse(x + 10, 92, 10, 5, 0, 0, 7); g.fill(); }
+      else if (k === 1) { g.fillRect(x + 8, 74, 4, 36); g.fillRect(x + 2, 74, 16, 4); }
+      else if (k === 2) { g.beginPath(); g.moveTo(x, 108); g.lineTo(x + 10, 76); g.lineTo(x + 20, 108); g.fill(); }
+      else { g.beginPath(); g.arc(x + 10, 92, 9, 0, 7); g.fill(); g.fillStyle = "#b8925a"; g.beginPath(); g.arc(x + 10, 92, 4, 0, 7); g.fill(); g.fillStyle = "#3b2a18"; }
+    }
+  }, 3, 1);
+  frieze.wrapT = THREE.ClampToEdgeWrapping;
+  const sand = new THREE.MeshStandardMaterial({ map: frieze, roughness: 0.9 });
+  const wall = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), sand); m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m); };
+  for (const side of [-1, 1]) wall(FRONT - BACK, side * W, (FRONT + BACK) / 2, -side * Math.PI / 2);
+  wall(2 * W, 0, BACK, 0);
+  // the ceiling is night sky: deep blue with gold stars, as in the tombs
+  const stars = canvasTex(256, 256, g => {
+    g.fillStyle = "#14234a"; g.fillRect(0, 0, 256, 256); g.fillStyle = "#e8c35a";
+    for (let i = 0; i < 40; i++) { const x = (i * 71) % 256, y = (i * 113) % 256; g.save(); g.translate(x, y); g.rotate(i); for (let k = 0; k < 5; k++) { g.rotate(Math.PI * 2 / 5); g.fillRect(-1, 0, 2, 6); } g.restore(); }
+  }, 4, 5);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshBasicMaterial({ map: stars }));
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(0, H, (FRONT + BACK) / 2); scene.add(ceil);
+  // columns: banded shaft, a papyrus-flower capital, a square block on top
+  const bands = canvasTex(64, 256, g => {
+    g.fillStyle = "#cfa86e"; g.fillRect(0, 0, 64, 256);
+    for (const [y, c] of [[20, "#1f4e79"], [30, "#a8322a"], [40, "#1f4e79"], [200, "#a8322a"], [212, "#1f4e79"]]) { g.fillStyle = c; g.fillRect(0, y, 64, 6); }
+  }, 4, 1);
+  const stone = new THREE.MeshStandardMaterial({ map: bands, roughness: 0.85 }), plain = new THREE.MeshStandardMaterial({ color: "#c49a5f", roughness: 0.9 });
+  const capH = 0.7, shaftH = H - capH - 0.3;
+  for (const [x, z] of COLUMNS) {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(COLUMN_R * 0.9, COLUMN_R, shaftH, 28), stone);
+    shaft.position.set(x, shaftH / 2, z);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(COLUMN_R * 1.7, COLUMN_R * 0.9, capH, 28), plain);
+    cap.position.set(x, shaftH + capH / 2, z);
+    const block = new THREE.Mesh(new THREE.BoxGeometry(COLUMN_R * 2.6, 0.3, COLUMN_R * 2.6), plain);
+    block.position.set(x, H - 0.15, z);
+    shaft.castShadow = cap.castShadow = shaft.receiveShadow = true; scene.add(shaft, cap, block);
+  }
+  // shafts of daylight slanting down the aisle from high windows, each with a faint visible beam
+  const beam = new THREE.MeshBasicMaterial({ color: "#ffc070", transparent: true, opacity: 0.025, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  for (const z of [2, -2, -6]) {
+    const from = new THREE.Vector3(-W + 0.3, H - 0.2, z + 1.2), to = new THREE.Vector3(0.6, 0, z);
+    const sun = new THREE.SpotLight("#ffd9a0", 35, 14, 0.22, 0.5, 1.2); sun.position.copy(from); sun.target.position.copy(to); scene.add(sun, sun.target);
+    const len = from.distanceTo(to), cone = new THREE.Mesh(new THREE.ConeGeometry(Math.tan(0.22) * len, len, 24, 1, true), beam);
+    cone.position.copy(from).lerp(to, 0.5); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), to.clone().sub(from).normalize()); scene.add(cone);
+  }
+  scene.add(new THREE.HemisphereLight("#ffe2b0", "#3a2616", 0.35));
 }
-// back wall wash so the far end of the room doesn't fall into black
-const wash = new THREE.SpotLight("#c9b8ff", 30, 20, 0.7, 0.9, 1.2);
-wash.position.set(0, H - 0.2, 0); wash.target.position.set(0, 1.5, BACK); scene.add(wash, wash.target);
+({ classic: classicShell, egypt: egyptShell })[style]();
 
 function spot(target, from, intensity, angle) {
   const s = new THREE.SpotLight("#ffe2bf", intensity, 14, angle, 0.55, 1.6);
@@ -192,7 +270,7 @@ const shapes = [new THREE.TorusKnotGeometry(0.28, 0.09, 90, 10), new THREE.Icosa
 }
 
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
-walkThrough({ renderer, scene, camera, me: walker({ x: 0, z: 5, yaw: 0, pitch: -0.03 }), pieces,
+walkThrough({ renderer, scene, camera, me: walker({ x: 0, z: 5, yaw: 0, pitch: -0.03 }, ROOMS[style].floor), pieces,
   onFrame: now => { for (const s of spinners) s.rotation.y = now * 0.0004; } });
 </script>
 </html>
