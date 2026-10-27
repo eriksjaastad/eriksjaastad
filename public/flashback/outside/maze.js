@@ -32,14 +32,27 @@ export const open = (x, y, map = MAP) => y >= 0 && y < map.length && x >= 0 && x
 
 export const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
-// A keyboard event as [direction, source], or null for keys that don't walk. The direction comes from what the key
-// means (an arrow, or the number pad's arrows with NumLock off); the source is the physical key (event.code), so an
-// arrow key and its number-pad twin held together are two holds, and letting go of one leaves the other walking.
+// The keyboard, fed DOM key events, driving a mover. Each physical key (event.code) owns its own hold: the
+// direction comes from what the key means when pressed (an arrow, or a number-pad arrow with NumLock off), and its
+// keyup releases whatever that key holds, whatever the key means by then (NumLock may have changed). As in the
+// gallery (walk.js keyDown), a modifier means a shortcut (Cmd+Left is Back) and macOS drops keyups while Cmd is
+// held, so a modified key walks nowhere and drops every keyboard hold; touch holds carry on. down() says whether
+// the page should preventDefault (only for the keys it uses).
 const ARROWS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
-export function keyInput({ key, code }) {
-  const dir = ARROWS[key];
-  return dir ? [dir, `key:${code || key}`] : null;
+export function keyboard(me) {
+  const source = ({ code, key }) => `key:${code || key}`;
+  return {
+    down(e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) { me.drop(s => s.startsWith("key:"), true); return false; }
+      const dir = ARROWS[e.key];
+      if (!dir) return false;
+      me.press(dir, source(e));
+      return true;
+    },
+    up(e) { const s = source(e); me.drop(x => x === s); },
+  };
 }
+
 export const STEP = 0.14;  // seconds to walk one tile
 
 // Hold a direction and you keep walking that way, a tile at a time; the last direction pressed (and still held)
@@ -58,6 +71,8 @@ export function mover(start = find("S"), map = MAP) {
     },
     release,
     releaseAll() { held.length = 0; tapped = null; },
+    // let go of every hold whose source passes `test`; with cancelTap, also of a tap not yet walked
+    drop(test, cancelTap = false) { for (let i = held.length - 1; i >= 0; i--) if (test(held[i][1])) held.splice(i, 1); if (cancelTap) tapped = null; },
     frame(dt) {
       t += Number.isFinite(dt) ? Math.min(0.1, Math.max(0, dt)) : 0;  // a frame after a pause can't skip the maze
       for (;;) {

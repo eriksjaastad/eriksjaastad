@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { MAP, find, open, mover, STEP, DIRS, keyInput } from "../public/flashback/outside/maze.js";
+import { MAP, find, open, mover, STEP, DIRS, keyboard } from "../public/flashback/outside/maze.js";
 
 // the shortest route from the start to the door, by breadth-first search over open tiles
 function route(map = MAP) {
@@ -111,21 +111,74 @@ test("walking: each input owns its hold: two holding the same way keep you going
   assert.ok(p.x >= 4, `is ignored: still walking (${p.x})`);
 });
 
-test("keys: an arrow and its number-pad twin (NumLock off) are separate holds; letting go of either, in either order, leaves the other walking", () => {
-  const pairs = { up: ["ArrowUp", "Numpad8", { x: 17, y: 15 }], down: ["ArrowDown", "Numpad2", { x: 17, y: 13 }],
-    left: ["ArrowLeft", "Numpad4", { x: 17, y: 9 }], right: ["ArrowRight", "Numpad6", { x: 1, y: 9 }] };
-  for (const [dir, [arrow, pad, start]] of Object.entries(pairs)) {
-    const a = keyInput({ key: arrow, code: arrow }), b = keyInput({ key: arrow, code: pad });
-    assert.deepEqual([a[0], b[0]], [dir, dir]); assert.notEqual(a[1], b[1]);
-    for (const [first, second] of [[a, b], [b, a]]) {
-      const m = mover(start), half = () => m.frame(STEP / 2);
-      m.press(...first); m.press(...second); half(); half();
-      m.release(...first); let p; for (let i = 0; i < 2; i++) p = half();
-      assert.ok(p.moving || Math.abs(p.x - start.x) + Math.abs(p.y - start.y) >= 2, `${dir}: still walking after ${first[1]} lets go`);
-      m.release(...second); for (let i = 0; i < 4; i++) p = half();
-      assert.ok(!p.moving, `${dir}: stops once ${second[1]} lets go too`);
+// keyboard events as the browser sends them; `still` says whether the walker is walking after a few half-steps
+const ev = (key, code, mods = {}) => ({ key, code, ...mods });
+function rig(start) {
+  const m = mover(start), k = keyboard(m), half = () => m.frame(STEP / 2);
+  const settle = n => { let p; for (let i = 0; i < n; i++) p = half(); return p; };
+  return { m, k, settle };
+}
+const PAIRS = { up: ["ArrowUp", "Numpad8", "8", { x: 17, y: 15 }], down: ["ArrowDown", "Numpad2", "2", { x: 17, y: 13 }],
+  left: ["ArrowLeft", "Numpad4", "4", { x: 17, y: 9 }], right: ["ArrowRight", "Numpad6", "6", { x: 1, y: 9 }] };
+
+test("keys: an arrow and its number-pad twin (NumLock off) are separate holds; either can let go first", () => {
+  for (const [dir, [arrow, pad, , start]] of Object.entries(PAIRS)) {
+    for (const [first, second] of [[arrow, pad], [pad, arrow]]) {
+      const { m, k, settle } = rig(start);
+      assert.equal(k.down(ev(arrow, first)), true); assert.equal(k.down(ev(arrow, second)), true);
+      settle(2); k.up(ev(arrow, first));
+      let p = settle(2);
+      assert.ok(p.moving || Math.abs(p.x - start.x) + Math.abs(p.y - start.y) >= 2, `${dir}: still walking after ${first} lets go`);
+      k.up(ev(arrow, second)); p = settle(4);
+      assert.ok(!p.moving, `${dir}: stops once ${second} lets go too`);
     }
   }
-  assert.equal(keyInput({ key: "a", code: "KeyA" }), null); assert.equal(keyInput({ key: "Enter", code: "Enter" }), null);
-  assert.equal(keyInput({ key: "ArrowUp" })[1], "key:ArrowUp", "a synthetic event without a code still has a source");
+});
+
+test("keys: a number-pad arrow let go after NumLock turned on (its keyup now says a digit) still stops you", () => {
+  for (const [dir, [arrow, pad, digit, start]] of Object.entries(PAIRS)) {
+    const { k, settle } = rig(start);
+    k.down(ev(arrow, pad)); settle(1); k.up(ev(digit, pad));
+    assert.ok(!settle(6).moving, dir);
+  }
+});
+
+test("keys: digits and other keys don't walk and aren't taken from the page; arrow keys are", () => {
+  const { k, settle } = rig({ x: 1, y: 9 });
+  for (const [key, code] of [["6", "Numpad6"], ["a", "KeyA"], ["Enter", "Enter"], [" ", "Space"]]) assert.equal(k.down(ev(key, code)), false, key);
+  assert.equal(settle(4).x, 1);
+  assert.equal(k.down(ev("ArrowRight", "ArrowRight")), true);
+});
+
+test("keys: with Cmd, Ctrl or Alt an arrow is a shortcut: it walks nowhere, stays the browser's, and drops keyboard holds but not touch", () => {
+  for (const mod of ["metaKey", "ctrlKey", "altKey"]) {
+    let { k, settle } = rig({ x: 1, y: 9 });
+    assert.equal(k.down(ev("ArrowRight", "ArrowRight", { [mod]: true })), false, `${mod}+Right is the browser's`);
+    assert.equal(settle(4).x, 1, `${mod}+Right walks nowhere`);
+    ({ k, settle } = rig({ x: 1, y: 9 }));
+    k.down(ev("ArrowRight", "ArrowRight")); settle(1);
+    k.down(ev("Meta", "MetaLeft", { [mod]: true }));  // then the arrow's keyup never comes (macOS with Cmd held)
+    let p = settle(6); assert.ok(!p.moving && p.x <= 2, `${mod} down stops a held arrow without its keyup (${p.x})`);
+    const r = rig({ x: 1, y: 9 });
+    r.m.press("right", "pointer1"); r.k.down(ev("ArrowRight", "ArrowRight")); r.settle(1);
+    r.k.down(ev("Control", "ControlLeft", { [mod]: true }));
+    p = r.settle(6); assert.ok(p.x >= 3, `${mod} leaves a finger's hold walking (${p.x})`);
+  }
+});
+
+test("keys: autorepeat keydowns while held add nothing, so letting go stops after the step under way", () => {
+  const { k, settle } = rig({ x: 1, y: 9 });
+  k.down(ev("ArrowRight", "ArrowRight"));
+  for (let i = 0; i < 4; i++) { k.down(ev("ArrowRight", "ArrowRight")); settle(1); }
+  k.down(ev("ArrowRight", "ArrowRight")); k.up(ev("ArrowRight", "ArrowRight"));
+  const p = settle(3); assert.ok(!p.moving && p.x === 4, `${p.x}`);
+});
+
+test("keys: a key tapped and let go before the next frame still takes its one step; a shortcut cancels one not yet walked", () => {
+  let { k, settle } = rig({ x: 1, y: 9 });
+  k.down(ev("ArrowRight", "ArrowRight")); k.up(ev("ArrowRight", "ArrowRight"));
+  let p = settle(3); assert.ok(!p.moving && p.x === 2, `one step (${p.x})`);
+  ({ k, settle } = rig({ x: 1, y: 9 }));
+  k.down(ev("ArrowRight", "ArrowRight")); k.up(ev("ArrowRight", "ArrowRight")); k.down(ev("Meta", "MetaLeft", { metaKey: true }));
+  p = settle(3); assert.equal(p.x, 1, "Cmd right after: no step");
 });
