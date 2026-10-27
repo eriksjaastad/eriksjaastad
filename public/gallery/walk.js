@@ -72,6 +72,9 @@ export function walker(start, room = ROOM) {
   // the gesture so far is a tap while one primary pointer is down and has moved at most 6 px in total.
   // Each new gesture starts fresh, so a press lost to blur or cancel can't spoil the next click.
   let tap = null;
+  // two-finger motion adds up here and is walked once per frame, so the pair's events cancel each other
+  // before collision, in either order, instead of each finger's share being clipped by a wall on its own
+  const pinch = { forward: 0, right: 0 };
   const pointerMove = (id, x, y) => {
     const p = pointers.get(id);
     if (!p || !Number.isFinite(x) || !Number.isFinite(y)) return;  // a bad sample neither moves you nor resets travel
@@ -82,7 +85,7 @@ export function walker(start, room = ROOM) {
     if (tap && (tap.travel += Math.hypot(dx, dy)) > 6) tap = null;
     // two fingers: spreading them walks forward, pinching walks back, and moving both slides like a
     // sliding drag (the pair's midpoint moves half as far as one finger). Three or more do nothing.
-    if (o) move((spread + dy / 2) * 0.01, -dx / 2 * 0.01);
+    if (o) { pinch.forward += (spread + dy / 2) * 0.01; pinch.right -= dx / 2 * 0.01; }
     else if (pointers.size === 1) { if (p.slide) move(dy * 0.01, -dx * 0.01); else turn(dx, dy); }
   };
   return {
@@ -128,6 +131,7 @@ export function walker(start, room = ROOM) {
       if (f || r) move(f * 2.6 * dt, r * 2.6 * dt);
       const q = keys.has("q") - keys.has("e");
       if (q) turn(q * 300 * dt, 0);
+      move(pinch.forward, pinch.right); pinch.forward = pinch.right = 0;
       if (flight) fly(dt);
       return { x: me.x, y: EYE, z: me.z, pitch: me.pitch, yaw: me.yaw, roll: 0, flying: !!flight };
     },

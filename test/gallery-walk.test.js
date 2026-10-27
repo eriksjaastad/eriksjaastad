@@ -95,6 +95,26 @@ test("pinch: spreading two fingers walks forward, pinching walks back, moving bo
   assert.ok(p.x === 0 && p.z === 0 && p.yaw === 0, "a second finger landing far away does not move you");
 });
 
+test("pinch: two fingers come out the same in either event order, beside a wall or the book stand, and move once", () => {
+  const gestures = { slide: [20, 120], spread: [-30, 130] };  // where fingers 1 and 2 (from x 0 and 100) move to
+  for (const spot of [{ x: 0, z: 5.45 }, { x: 0.65, z: -8.4 }, { x: -5.45, z: 0 }, { x: 0, z: -9.45 }, { x: 0, z: 0 }]) {
+    for (const [name, to] of Object.entries(gestures)) {
+      const ends = [[1, 2], [2, 1]].map(order => {
+        const w = walker({ ...spot, yaw: 0, pitch: 0 });
+        w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false);
+        for (const id of order) w.pointerMove(id, to[id - 1], 0);
+        const p = w.frame(0);
+        assert.deepEqual(w.frame(16), p, "the next frame does not move again");
+        return p;
+      });
+      const why = `${name} at ${JSON.stringify(spot)}`;
+      assert.deepEqual(ends[0], ends[1], why);
+      assert.ok(standable(ends[0].x, ends[0].z, ROOM), why);
+      if (name === "slide") assert.ok(Math.abs(ends[0].z - spot.z) < 1e-9, why);  // a sideways slide never walks forward
+    }
+  }
+});
+
 test("walker: each control moves the view the way it says, and a released key stops", () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   let w = at(); w.wheel(-48, 0, 800); assert.ok(near(w.frame(0).z, -48 * 0.006));         // scroll up walks forward
