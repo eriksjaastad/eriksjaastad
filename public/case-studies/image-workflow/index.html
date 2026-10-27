@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15161b">
+<title>Image Workflow · Erik Sjaastad</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="Seven months turning a manual image review and cropping job into a Python pipeline: 313 commits, eight stages, used in real client work.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://eriksjaastad.com/case-studies/image-workflow/">
+<meta property="og:title" content="Image Workflow · Erik Sjaastad">
+<meta property="og:description" content="Seven months turning a manual image review and cropping job into a Python pipeline: 313 commits, eight stages, used in real client work.">
+<meta property="og:image" content="https://eriksjaastad.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Erik Sjaastad, next to a 3D graph of glowing orange project orbs">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* One case study: the /case-studies/ room, a jump-to nav, a readable column, and two small visuals built from the repo. */
+:root {
+  color-scheme: dark;
+  --room: #15161b;
+  --room-2: #1e2027;
+  --ink: #ece7dc;
+  --ink-dim: #9a968d;
+  --amber: #ffc46b;
+  --line: #2e3039;
+  --neon: #ff6a00;
+  --chart: #f0620a;  /* the neon, one step deeper so bars sit in the dark-surface lightness band (dataviz validator) */
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh;
+  background: radial-gradient(120% 80% at 50% 0%, var(--room-2), var(--room) 60%);
+  background-color: var(--room);
+  color: var(--ink);
+  font: 17px/1.55 var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+main { max-width: 760px; margin: 0 auto; display: grid; gap: 36px; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; }
+.back { font: 12px var(--mono); color: var(--ink-dim); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+.back:hover { color: var(--neon); }
+h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035em; margin: 18px 0 14px; text-wrap: balance; }
+.lede { margin: 0; max-width: 56ch; color: var(--ink-dim); }
+.list { display: grid; gap: 12px; }
+.study { display: grid; gap: 8px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, box-shadow .2s; }
+.study:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.3); }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
+.study h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
+.status { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.study p { margin: 0; color: var(--ink-dim); max-width: 62ch; }
+.study small { font: 12px var(--mono); color: var(--ink-dim); }
+.study small a { text-underline-offset: 3px; }
+.study small a:hover { color: var(--neon); }
+.foot { font: 12px var(--mono); color: var(--ink-dim); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .study { transition: none; } }
+nav.jump { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.jump a { font: 12px var(--mono); color: var(--ink-dim); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; }
+nav.jump a:hover { color: var(--neon); border-color: var(--neon); }
+section { display: grid; gap: 12px; scroll-margin-top: 16px; }
+section h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+section p, section li { color: var(--ink); max-width: 62ch; margin: 0; }
+section ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.hl { color: var(--amber); }
+.note { font-size: 15px; color: var(--ink-dim) !important; border-left: 2px solid var(--line); padding-left: 12px; }
+/* the pipeline: eight numbered stages, each sized by its code */
+.stages { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; list-style: none; padding: 0 !important; }
+.stages li { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; background: rgba(255,255,255,.02); }
+.stages b { font-size: 15px; font-weight: 600; } .stages b span { font: 11px var(--mono); color: var(--amber); margin-right: 6px; }
+.stages i { display: block; height: 4px; border-radius: 2px; background: var(--chart); }
+.stages small { font: 11px var(--mono); color: var(--ink-dim); }
+/* the commit chart: one series, so no legend; hover a week for its count; a table for the numbers */
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font: 12px var(--mono); color: var(--ink-dim); }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { font: 10px var(--mono); fill: var(--ink-dim); }
+.chart .bar { fill: var(--chart); }
+.chart .hit { fill: transparent; cursor: default; }
+.chart .hit:hover + .bar { fill: var(--amber); }
+.tip { position: absolute; pointer-events: none; font: 12px var(--mono); background: var(--room-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; color: var(--ink); white-space: nowrap; transform: translate(-50%, -110%); }
+details summary { font: 12px var(--mono); color: var(--ink-dim); cursor: pointer; }
+details table { border-collapse: collapse; font: 12px var(--mono); margin-top: 8px; }
+details td, details th { border-bottom: 1px solid var(--line); padding: 3px 14px 3px 0; text-align: left; color: var(--ink-dim); }
+</style>
+
+<main>
+  <header>
+    <a class="back" href="/case-studies/">← Case studies</a>
+    <h1>Image Workflow</h1>
+    <p class="lede">Seven months turning a manual image review and cropping job into a Python pipeline. <span class="hl">313 commits</span>, eight stages, used in real client work.</p>
+  </header>
+
+  <nav class="jump" aria-label="On this page"><a href="#problem">The problem</a><a href="#built">What I built</a><a href="#grew">How it grew</a><a href="#next">What came next</a></nav>
+
+  <section id="problem">
+    <h2>The problem</h2>
+    <p>A high-volume content workflow ran on people: every image reviewed by hand, cropped by hand, sorted by hand. I built Image Workflow to automate it end to end, so a person only makes the calls a person has to make.</p>
+    <p class="note">The work was for a confidential client, so there are no screenshots and no link to the code. This page describes the engineering only.</p>
+  </section>
+
+  <section id="built">
+    <h2>What I built</h2>
+    <ul>
+      <li>A <span class="hl">batch image-processing pipeline</span> in Python: automated cropping, grouping, selection staging and delete staging across large image sets.</li>
+      <li>A <span class="hl">custom desktop review tool</span> for fast human-in-the-loop triage of what the pipeline produced.</li>
+      <li><span class="hl">Dataset preparation</span> for model training.</li>
+    </ul>
+    <p>The pipeline is eight numbered steps, run in order on each project. The bar under each is how much code it took.</p>
+    <ol class="stages" aria-label="The eight pipeline stages and their size in lines of code">
+      <li><b><span>00</span>Start a project</b><i style="width:24%"></i><small>780 lines</small></li>
+      <li><b><span>01</span>AI-assisted review</b><i style="width:79%"></i><small>2,551 lines</small></li>
+      <li><b><span>02</span>Crop and group</b><i style="width:86%"></i><small>2,779 lines</small></li>
+      <li><b><span>03</span>Sort</b><i style="width:100%"></i><small>3,228 lines</small></li>
+      <li><b><span>04</span>Check</b><i style="width:9%"></i><small>282 lines</small></li>
+      <li><b><span>05</span>Compare folders</b><i style="width:25%"></i><small>803 lines</small></li>
+      <li><b><span>06</span>Find duplicates</b><i style="width:27%"></i><small>873 lines</small></li>
+      <li><b><span>07</span>Finish a project</b><i style="width:21%"></i><small>665 lines</small></li>
+    </ol>
+    <p class="note">About 12,100 lines across the eight stages, with 65 test files behind them.</p>
+  </section>
+
+  <section id="grew">
+    <h2>How it grew</h2>
+    <p>Most of it was built in two fast stretches, late September and October 2025 (175 commits that month alone), then a push in December. After that the commits thin out to a handful a month.</p>
+    <figure>
+      <div class="chart" id="chart"></div>
+      <figcaption>Commits per week, Sept 15, 2025 to Apr 26, 2026 · from the repo's git history</figcaption>
+      <details><summary>See the numbers</summary><table id="table"><tr><th>Week of</th><th>Commits</th></tr></table></details>
+    </figure>
+  </section>
+
+  <section id="next">
+    <h2>What came next</h2>
+    <p>Image Workflow has since been retired, replaced by PickKit, a newer tool.</p>
+  </section>
+
+  <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
+</main>
+<script>
+// commits per week (Monday of each week), counted from git log; drawn as one series of bars on a shared baseline
+const WEEKS = [["2025-09-15", 10], ["2025-09-22", 62], ["2025-09-29", 18], ["2025-10-06", 18], ["2025-10-13", 4], ["2025-10-20", 87], ["2025-10-27", 56], ["2025-11-03", 19], ["2025-11-10", 0], ["2025-11-17", 0], ["2025-11-24", 0], ["2025-12-01", 25], ["2025-12-08", 0], ["2025-12-15", 0], ["2025-12-22", 0], ["2025-12-29", 5], ["2026-01-05", 0], ["2026-01-12", 0], ["2026-01-19", 0], ["2026-01-26", 0], ["2026-02-02", 0], ["2026-02-09", 0], ["2026-02-16", 0], ["2026-02-23", 0], ["2026-03-02", 0], ["2026-03-09", 0], ["2026-03-16", 0], ["2026-03-23", 3], ["2026-03-30", 3], ["2026-04-06", 1], ["2026-04-13", 1], ["2026-04-20", 1]];
+const chart = document.getElementById("chart"), W = 640, H = 200, L = 28, B = 22, T = 8, max = 100;  // T: not `top`, which is window.top in a classic script
+const slot = (W - L) / WEEKS.length, bw = Math.min(24, slot - 2), y = n => H - B - (H - B - T) * n / max;
+const fmt = d => new Date(d + "T00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Commits per week: peaks of 62 in late September 2025 and 87 in late October, quiet from January">`;
+for (const n of [0, 50, 100]) svg += `<line class="grid" x1="${L}" x2="${W}" y1="${y(n)}" y2="${y(n)}"/><text class="axis" x="${L - 6}" y="${y(n) + 3}" text-anchor="end">${n}</text>`;
+WEEKS.forEach(([d, n], i) => {
+  const x = L + i * slot + (slot - bw) / 2, h = H - B - y(n), r = Math.min(4, h);
+  if (d.endsWith("-01") || i === 0 || new Date(d + "T00:00").getDate() <= 7) svg += `<text class="axis" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${new Date(d + "T00:00").toLocaleDateString("en-US", { month: "short" })}</text>`;
+  svg += `<rect class="hit" data-i="${i}" x="${L + i * slot}" y="${T}" width="${slot}" height="${H - B - T}"/>`;
+  svg += n ? `<path class="bar" data-i="${i}" d="M${x},${H - B}V${H - B - h + r}q0,-${r} ${r},-${r}h${bw - 2 * r}q${r},0 ${r},${r}V${H - B}Z"/>` : `<path class="bar" data-i="${i}" d=""/>`;
+});
+chart.innerHTML = svg + "</svg>";
+const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; chart.append(tip);
+chart.addEventListener("pointerover", e => {
+  const i = e.target.dataset?.i; if (i === undefined) return;
+  const [d, n] = WEEKS[i], r = e.target.getBoundingClientRect(), c = chart.getBoundingClientRect();
+  tip.textContent = `week of ${fmt(d)}: ${n} commit${n === 1 ? "" : "s"}`; tip.hidden = false;
+  // centred on the bar, but never past either edge of the chart: clamp by the label's own half-width
+  const half = tip.offsetWidth / 2, mid = r.left + r.width / 2 - c.left;
+  tip.style.left = `${c.width < 2 * half ? c.width / 2 : Math.min(Math.max(mid, half), c.width - half)}px`; tip.style.top = `${y(Math.max(n, 8)) / H * c.height}px`;
+});
+chart.addEventListener("pointerleave", () => { tip.hidden = true; });
+document.getElementById("table").append(...WEEKS.filter(([, n]) => n).map(([d, n]) => { const tr = document.createElement("tr"); tr.innerHTML = `<td>${fmt(d)}</td><td>${n}</td>`; return tr; }));
+</script>
+</html>

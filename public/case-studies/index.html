@@ -54,6 +54,8 @@ h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035e
 .lede { margin: 0; max-width: 56ch; color: var(--ink-dim); }
 .list { display: grid; gap: 12px; }
 .study { display: grid; gap: 8px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, box-shadow .2s; }
+a.study { text-decoration: none; color: inherit; }
+.study .icon { width: 28px; height: 28px; color: var(--neon); }
 .study:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.3); }
 .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
 .study h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
@@ -70,10 +72,15 @@ h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035e
   <header>
     <a class="back" href="/">← Home</a>
     <h1>Case studies</h1>
-    <p class="lede">Write-ups of real work, with what I measured and what I'm still guessing at. These are in progress. Each one goes up in full once its numbers and claims check out.</p>
+    <p class="lede">Write-ups of real work, with what I measured and what I'm still guessing at. Each one goes up in full once its numbers and claims check out; the rest are still in progress.</p>
   </header>
 
-  <section class="list" aria-label="Case studies in progress">
+  <section class="list" aria-label="Case studies">
+    <a class="study" href="/case-studies/image-workflow/">
+      <svg class="icon" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 2v18h18M2 8h18v18"/></svg>
+      <div class="top"><h2>Image Workflow</h2><span class="status">Shipped</span></div>
+      <p>Seven months turning a manual image review and cropping job into a Python pipeline: 313 commits, eight stages, used in real client work.</p>
+    </a>
     <article class="study">
       <div class="top"><h2>One agent managing another</h2><span class="status">Draft in review</span></div>
       <p>An experiment on Holoscape, my macOS terminal app: one AI agent managing the project, and a second agent that was supposed to write the code. What the commit history, pull requests and telemetry show about how that went, including where the records disagree.</p>
