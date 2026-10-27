@@ -57,6 +57,16 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 /* fits by width and height, so landscape and portrait prints are whole on any screen */
 #photo img { display: block; max-width: calc(100vw - 48px); max-height: calc(100dvh - 130px); width: auto; height: auto; background: #fff; padding: 10px 10px 30px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
 #photo figcaption { font: 13px var(--mono); color: #ffc46b; }
+/* the rotary dial, up close: the wheel you drag, the notepad beside it, what you've dialed, and who answered */
+#dial .wrap { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: center; max-width: 100%; max-height: 100%; overflow: auto; margin: auto; }
+#dial svg { width: min(78vw, 58dvh, 420px); height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+#dial .hole { fill: #f2eee4; stroke: #7a1410; stroke-width: 2; cursor: grab; }
+#dial .side { display: grid; gap: 12px; justify-items: start; max-width: 260px; }
+#dial .note { background: #fbf6dc; color: #1d3a8a; font: bold 18px "Comic Sans MS", "Marker Felt", cursive; padding: 10px 16px 12px 34px; border-radius: 4px; line-height: 1.6;
+  background-image: linear-gradient(90deg, transparent 22px, #e08a8a 22px 24px, transparent 24px), repeating-linear-gradient(transparent 0 27px, #9cc3e6 27px 29px); transform: rotate(-1.5deg); }
+#dial .number { font: 600 28px var(--mono); letter-spacing: .08em; color: var(--ink); min-height: 1.2em; }
+#dial .line { font: 13px var(--mono); color: #ffc46b; min-height: 2.6em; max-width: 260px; }
+#dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
 @media (max-width: 700px) { .page { padding: 16px; gap: 10px; } }
 </style>
 <div id="stage"></div>
@@ -71,6 +81,21 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
     <nav><button class="prev">‹ Back</button><button class="next" autofocus>Turn ›</button></nav>
   </div>
 </dialog>
+<dialog id="dial" aria-label="Rotary phone"><div class="wrap">
+  <svg viewBox="-110 -110 220 220" role="img" aria-label="Rotary dial: drag a finger hole clockwise to the metal stop and let go">
+    <circle r="108" fill="#b3201c"/><circle r="92" fill="#f2eee4"/>
+    <g id="numbers" font-family="monospace" font-weight="700" font-size="15" fill="#222" text-anchor="middle" dominant-baseline="central"></g>
+    <defs><mask id="cutouts"><circle r="88" fill="#fff"/><g id="cuts"></g></mask></defs>
+    <g id="wheel"><circle r="88" fill="#b3201c" mask="url(#cutouts)"/><circle r="34" fill="#f2eee4" stroke="#7a1410" stroke-width="2"/><g id="holes"></g></g>
+    <path id="stop" d="M0 0 L12 -4 L12 4 Z" fill="#c9c9cf" stroke="#555" stroke-width="1"/>
+  </svg>
+  <div class="side">
+    <div class="note">TIME &amp; TEMP<br>555-0142<br>SNOW DAY LINE<br>555-0177</div>
+    <div class="number" aria-live="polite"></div>
+    <div class="line" aria-live="polite">drag a number round to the metal stop</div>
+    <button class="hang">Hang up</button>
+  </div>
+</div></dialog>
 <dialog id="photo" aria-label="Photo"><figure><img alt=""><figcaption></figcaption><button class="close">Back to the album</button></figure></dialog>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -81,6 +106,7 @@ import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
+import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -292,6 +318,68 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   piece([blades], "Rollerblades", "four wheels in a row, the only way to get around", SPOTS.rollerblades);
 }
 
+// left wall, toward the back: a little table with the red rotary phone and the notepad of numbers, a chair beside it.
+// Standing there, tap the phone (or the notepad) to dial.
+{
+  const wood = new THREE.MeshStandardMaterial({ color: "#6b4226", roughness: 0.6 }), dark = new THREE.MeshStandardMaterial({ color: "#4a2d18", roughness: 0.7 });
+  const red = new THREE.MeshStandardMaterial({ color: "#b3201c", roughness: 0.35 }), black = new THREE.MeshStandardMaterial({ color: "#111", roughness: 0.5 });
+  const table = new THREE.Group();
+  table.add(mesh(new THREE.BoxGeometry(0.5, 0.04, 0.7), wood, 0, 0.72, 0));
+  for (const [x, z] of [[-0.21, -0.31], [0.21, -0.31], [-0.21, 0.31], [0.21, 0.31]]) table.add(mesh(new THREE.BoxGeometry(0.04, 0.7, 0.04), dark, x, 0.35, z));
+  table.position.set(-3.7, 0, -2.25); table.traverse(m => { m.castShadow = m.receiveShadow = true; });
+  scene.add(table);
+  // a small lamp at the back of the table, so the phone corner isn't dark: brass stem, a glowing shade
+  const lamp = new THREE.Group();
+  lamp.add(mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.02, 16), new THREE.MeshStandardMaterial({ color: "#b8873a", metalness: 0.8, roughness: 0.3 }), 0, 0.01, 0));
+  lamp.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.26, 8), new THREE.MeshStandardMaterial({ color: "#b8873a", metalness: 0.8, roughness: 0.3 }), 0, 0.14, 0));
+  lamp.add(mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.12, 20, 1, true), new THREE.MeshStandardMaterial({ color: "#f3dfae", emissive: "#ffc46b", emissiveIntensity: 0.6, side: THREE.DoubleSide }), 0, 0.3, 0));
+  const glow = new THREE.PointLight("#ffbf73", 2.2, 3.2, 1.6); glow.position.y = 0.28; lamp.add(glow);
+  lamp.position.set(-3.82, 0.74, -2.5); scene.add(lamp);
+
+  // the phone: a sloped body, the dial on its face, the handset in its cradle, a curly cord
+  const phone = new THREE.Group(); phone.name = "phone";
+  const body = mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.1, 4, 1), red, 0, 0.05, 0, 0, Math.PI / 4, 0); body.scale.set(1, 1, 1.1);
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = "#f2eee4"; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill();
+  g.fillStyle = "#222"; g.font = "bold 13px monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+  "1234567890".split("").forEach((d, i) => { const a = (-30 - i * 30) * Math.PI / 180; g.fillText(d, 64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44); });
+  const face = new THREE.CanvasTexture(c); face.colorSpace = THREE.SRGBColorSpace;
+  const dialFace = mesh(new THREE.CircleGeometry(0.065, 32), new THREE.MeshStandardMaterial({ map: face, roughness: 0.4 }), 0.075, 0.075, 0, 0, Math.PI / 2, 0);
+  dialFace.rotation.set(0, Math.PI / 2, 0); dialFace.rotateX(-0.5);
+  const handset = new THREE.Group();
+  handset.add(mesh(new THREE.BoxGeometry(0.05, 0.035, 0.22), red, 0, 0, 0));
+  for (const z of [-0.1, 0.1]) handset.add(mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.045, 16), red, 0, -0.01, z));
+  handset.position.set(-0.01, 0.13, 0);
+  const cord = mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 24, Math.PI * 1.4), black, -0.06, 0.07, 0.14, Math.PI / 2, 0, 0);
+  phone.add(body, dialFace, handset, cord);
+  phone.position.set(-3.7, 0.74, -2.4); phone.rotation.y = 0;
+  phone.traverse(m => { m.castShadow = true; }); scene.add(phone);
+
+  // the notepad, written big enough to read from where you stand (the dial shows it larger still)
+  const n = document.createElement("canvas"); n.width = 256; n.height = 320;
+  const ng = n.getContext("2d");
+  ng.fillStyle = "#fbf6dc"; ng.fillRect(0, 0, 256, 320);
+  ng.strokeStyle = "#9cc3e6"; ng.lineWidth = 2; for (let y = 56; y < 320; y += 36) { ng.beginPath(); ng.moveTo(0, y); ng.lineTo(256, y); ng.stroke(); }
+  ng.strokeStyle = "#e08a8a"; ng.beginPath(); ng.moveTo(30, 0); ng.lineTo(30, 320); ng.stroke();
+  ng.fillStyle = "#1d3a8a"; ng.font = "bold 22px 'Comic Sans MS', 'Marker Felt', cursive";
+  [["TIME & TEMP", 84], ["555-0142", 120], ["SNOW DAY LINE", 192], ["555-0177", 228]].forEach(([t, y]) => ng.fillText(t, 40, y));
+  const pad = mesh(new THREE.BoxGeometry(0.16, 0.012, 0.2), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(n), roughness: 0.9 }), -3.68, 0.746, -2.03);
+  pad.material.map.colorSpace = THREE.SRGBColorSpace; pad.rotation.y = Math.PI / 2 + 0.1; pad.name = "notepad"; pad.castShadow = true;
+  const pencil = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.16, 8), new THREE.MeshStandardMaterial({ color: "#f2c230" }), -3.6, 0.748, -2.05, 0, 0.3, Math.PI / 2);
+  scene.add(pad, pencil);
+  piece([phone, pad], "The phone", "tap it to dial · the numbers are on the notepad", SPOTS.phone);
+
+  // the chair beside it: seat, four legs, a back of three slats
+  const chair = new THREE.Group();
+  chair.add(mesh(new THREE.BoxGeometry(0.42, 0.04, 0.42), wood, 0, 0.45, 0));
+  for (const [x, z] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) chair.add(mesh(new THREE.BoxGeometry(0.035, 0.45, 0.035), dark, x, 0.225, z));
+  for (const z of [-0.18, 0.18]) chair.add(mesh(new THREE.BoxGeometry(0.035, 0.5, 0.035), dark, -0.19, 0.7, z));
+  for (const y of [0.62, 0.76, 0.9]) chair.add(mesh(new THREE.BoxGeometry(0.03, 0.06, 0.38), wood, -0.19, y, 0));
+  chair.position.set(-3.35, 0, -1.2); chair.rotation.y = 0.35; chair.traverse(m => { m.castShadow = m.receiveShadow = true; });
+  scene.add(chair);
+}
+
 // a few slow motes of light drifting about: the "magical" part of the cabin
 const motes = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(
   Array.from({ length: 120 }, (_, i) => [((i * 97) % 80) / 10 - 4, ((i * 53) % 28) / 10 + 0.1, ((i * 31) % 80) / 10 - 4]).flat(), 3)),
@@ -353,6 +441,7 @@ photoEl.addEventListener("close", keepFocus);  // the browser returns focus to t
 // while reading, the walker's window listener never sees keydown (capture runs first); Escape still closes the top
 // dialog, which is the browser's default action. Arrows turn the pages when the book is on top.
 document.addEventListener("keydown", e => {
+  if (dialEl.open) { e.stopPropagation(); return; }  // the walker doesn't see keys while you're on the phone either
   if (!reading) return;
   e.stopPropagation();
   if (!photoEl.open && e.key === "ArrowRight") turn(1);
@@ -364,13 +453,88 @@ addEventListener("resize", () => {
   reading.per = perView(); reading.pg.view(reading.per); show(0);
 });
 
+// ---------- the rotary phone: a dial you really dial, then whoever answers ----------
+const dialEl = document.getElementById("dial"), wheel = document.getElementById("wheel"), svgEl = dialEl.querySelector("svg");
+const lineEl = dialEl.querySelector(".line"), numberEl = dialEl.querySelector(".number");
+let phoneDial = null, audio = null, call = null, playing = [];  // call: the current placeCall; playing: every oscillator started while the dial is open
+{
+  const at = (deg, r) => [Math.cos(deg * Math.PI / 180) * r, Math.sin(deg * Math.PI / 180) * r];
+  const ns = "http://www.w3.org/2000/svg";
+  for (const d of DIGITS) {
+    const [x, y] = at(restAngle(d), 66);
+    const t = document.createElementNS(ns, "text"); t.setAttribute("x", x); t.setAttribute("y", y); t.textContent = d; document.getElementById("numbers").append(t);
+    // the wheel's finger holes are real cutouts (an SVG mask) so the numbers show through; a clear ring marks each hole
+    const cut = document.createElementNS(ns, "circle"); cut.setAttribute("cx", x); cut.setAttribute("cy", y); cut.setAttribute("r", 15); cut.setAttribute("fill", "#000"); document.getElementById("cuts").append(cut);
+    const h = document.createElementNS(ns, "circle"); h.setAttribute("cx", x); h.setAttribute("cy", y); h.setAttribute("r", 15); h.setAttribute("class", "hole"); h.dataset.digit = d;
+    h.setAttribute("fill-opacity", "0"); document.getElementById("holes").append(h);
+  }
+  const [sx, sy] = at(STOP, 92); document.getElementById("stop").setAttribute("transform", `translate(${sx} ${sy}) rotate(${STOP + 180})`);
+}
+const pointerAngle = e => { const r = svgEl.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
+// one finger owns a pull (dial.js ignores the others); its lift position counts; a cancelled pull dials nothing
+svgEl.addEventListener("pointerdown", e => {
+  const d = e.target.dataset?.digit;
+  if (!d || call || !phoneDial?.grab(d, pointerAngle(e), e.pointerId)) return;
+  svgEl.setPointerCapture(e.pointerId); e.preventDefault(); sound();  // browsers only start audio inside a gesture
+});
+svgEl.addEventListener("pointermove", e => phoneDial?.drag(pointerAngle(e), e.pointerId));
+svgEl.addEventListener("pointerup", e => {
+  if (phoneDial?.release(pointerAngle(e), e.pointerId)) numberEl.textContent = phoneDial.number.replace(/^(\d{3})(\d)/, "$1-$2");
+});
+svgEl.addEventListener("pointercancel", e => phoneDial?.cancel(e.pointerId));
+// sounds: a click per pulse as the wheel comes home, the ring, the three rising "not in service" tones, and voices
+function sound() { audio ??= new AudioContext(); if (audio.state === "suspended") audio.resume(); return audio; }
+// a tone at an audio-clock time; every one is kept so closing the dial silences clicks and calls alike
+function tone(freqs, at, length, gain = 0.08) {
+  const a = sound(), g = a.createGain(); g.gain.value = gain; g.connect(a.destination);
+  for (const f of freqs) { const o = a.createOscillator(); o.frequency.value = f; o.connect(g); o.start(at); o.stop(at + length); playing.push(o); }
+}
+const say = text => { lineEl.textContent = text; if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; speechSynthesis.speak(u); } };
+async function seattleTemp() {  // Seattle's temperature right now, from Open-Meteo (no key, no visitor location); null if it can't be had
+  try {
+    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=47.61&longitude=-122.33&current=temperature_2m&temperature_unit=fahrenheit", { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return null;
+    const t = (await r.json())?.current?.temperature_2m;
+    return Number.isFinite(t) ? Math.round(t) : null;
+  } catch { return null; }
+}
+// a call: dial.js places it on the audio clock (rings, tones) and a timer for the voice; captions show what's said
+function answer(line) {
+  let temp = null;
+  if (line === "time") seattleTemp().then(t => { temp = t; });  // ready long before the answer (3 s timeout); if not, unavailable
+  lineEl.textContent = line === "none" ? "..." : "ringing...";
+  call = placeCall(line, { now: () => sound().currentTime, wall: () => Date.now(), tone, later: (s, fn) => setTimeout(fn, s * 1000), speak: say, temp: () => temp });
+}
+function hangUp() {
+  call?.cancel(); call = null;
+  for (const o of playing) { try { o.stop(); } catch { /* already stopped */ } }
+  playing = []; if ("speechSynthesis" in window) speechSynthesis.cancel();
+  phoneDial?.hangUp(); numberEl.textContent = ""; lineEl.textContent = "drag a number round to the metal stop";
+}
+function openDial() { phoneDial = dialer(); hangUp(); dialEl.showModal(); }
+dialEl.querySelector(".hang").onclick = () => dialEl.close();
+dialEl.addEventListener("click", e => { if (e.target === dialEl) dialEl.close(); });
+dialEl.addEventListener("close", () => { hangUp(); phoneDial = null; });
+let dialLast = null;
+(function spin(now) {  // draw the wheel springing back, clicking once per hole it passes; dial a number once it's complete
+  if (phoneDial) {
+    const { rotation, pulses } = phoneDial.frame(dialLast === null ? 0 : (now - dialLast) / 1000);
+    for (let i = 0; i < pulses; i++) tone([1800], sound().currentTime + i * 0.025, 0.012, 0.05);  // one click per pulse, even if a slow frame passed several
+    wheel.setAttribute("transform", `rotate(${rotation})`);
+    const line = lineFor(phoneDial.number);
+    if (line && !call && rotation === 0) answer(line);
+  }
+  dialLast = now; requestAnimationFrame(spin);
+})(performance.now());
+
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
 const open = hinges();
 let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
-  onTap: hit => {  // a tap on an album or the scrapbook opens it; on a drawer or door (or its knob) flips it
-    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name)) o = o.parent;
-    if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
+  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial
+    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && o.name !== "phone" && o.name !== "notepad") o = o.parent;
+    if (o?.name === "phone" || o?.name === "notepad") openDial();
+    else if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
     return !!o;
   },
   onFrame: now => {

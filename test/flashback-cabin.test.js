@@ -5,8 +5,8 @@ import fc from "fast-check";
 import { standable, walker, heading } from "../public/gallery/walk.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "../public/flashback/cabin.js";
 
-// the furniture's footprint (index.html): chest x -0.75..0.75 to z -3.4, rollerblades from x 2.4, snowboard in the corner
-const inside = (x, z) => (Math.abs(x) < 0.75 && z < -3.35) || (x > 2.35 && z < -3.25);
+// the furniture's footprint (index.html): chest x -0.75..0.75 to z -3.4, rollerblades from x 2.4, snowboard in the corner, phone table + chair on the left wall
+const inside = (x, z) => (Math.abs(x) < 0.75 && z < -3.35) || (x > 2.35 && z < -3.25) || (x < -2.95 && z > -2.7 && z < -0.75);  // ... and the phone table and chair
 
 test("cabin: no walking, sliding or pinching takes you off the floor or into the furniture", () => {
   const ev = fc.tuple(fc.integer({ min: 0, max: 3 }), fc.integer({ min: 1, max: 2 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }));
