@@ -4,7 +4,7 @@
 // a stand-in photo: an SVG print in the book's colour with its number on it, so pages read as waiting, not broken
 const standIn = (hue, n) => ({
   src: "data:image/svg+xml," + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 400 300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
     `<stop offset="0" stop-color="hsl(${hue},45%,62%)"/><stop offset="1" stop-color="hsl(${(hue + 40) % 360},50%,32%)"/></linearGradient></defs>` +
     `<rect width="400" height="300" fill="url(#g)"/><text x="200" y="160" font-family="monospace" font-size="22" fill="rgba(255,255,255,.75)" text-anchor="middle">photo ${n} · coming soon</text></svg>`),
   note: `photo ${n} · coming soon`,
