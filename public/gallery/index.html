@@ -35,7 +35,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 <div id="stage"></div>
 <header id="title" class="chrome"><h1>The gallery</h1><p>the room is up · the art is on its way</p></header>
 <a id="home" class="chrome" href="/">Home</a>
-<nav id="rooms" class="chrome" aria-label="Room"><a href="/gallery/">Gallery</a><a href="/gallery/?room=egypt">Egyptian hall</a></nav>
+<nav id="rooms" class="chrome" aria-label="Room"><a href="/gallery/">Gallery</a><a href="/gallery/?room=hypostyle">Hypostyle hall</a><a href="/gallery/?room=pantheon">Pantheon</a></nav>
 <div id="hint" class="chrome"><span class="desk">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click a piece to walk to it</span><span class="touch">drag to look · pinch to walk · tap a piece</span></div>
 <div id="caption" class="chrome" aria-live="polite"><b></b><span></span></div>
 <script type="importmap">
@@ -45,7 +45,7 @@ body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focuse
 import * as THREE from "three";
 import { walker } from "./walk.js";
 import { walkThrough } from "./room.js";
-import { ROOMS, COLUMNS, COLUMN_R, styleFrom } from "./rooms.js";
+import { styleFrom, hypostyleColumns, NAVE, AISLE, PANTHEON, bounds, shadowBox } from "./rooms.js";
 
 // Room: x -6..6, floor y 0, ceiling y 5, entrance z +6, back wall z -10.
 const W = 6, H = 5, FRONT = 6, BACK = -10;
@@ -115,74 +115,175 @@ function classicShell() {
   wash.position.set(0, H - 0.2, 0); wash.target.position.set(0, 1.5, BACK); scene.add(wash, wash.target);
 }
 
-// the Egyptian hall: sandstone, a starry ceiling, two rows of papyrus columns, light falling in shafts
-function egyptShell() {
-  scene.background = new THREE.Color("#1a120a"); scene.fog = new THREE.Fog("#1a120a", 14, 32);
-  const canvasTex = (w, h, draw, rx = 1, ry = 1) => {
-    const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"));
-    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
-  };
-  const tiles = canvasTex(256, 256, g => {
-    g.fillStyle = "#c8a46c"; g.fillRect(0, 0, 256, 256);
-    g.strokeStyle = "#8c6a3c"; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256); g.strokeRect(0, 0, 128, 256);
-  }, 6, 8);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshStandardMaterial({ map: tiles, roughness: 0.85 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.z = (FRONT + BACK) / 2; floor.receiveShadow = true; scene.add(floor);
-  // walls: plain sandstone with a painted frieze of little glyphs and coloured bands near the top
-  const frieze = canvasTex(512, 512, g => {
-    g.fillStyle = "#b8925a"; g.fillRect(0, 0, 512, 512);
-    for (const [y, c] of [[40, "#1f4e79"], [52, "#b8925a"], [56, "#a8322a"], [130, "#1f4e79"]]) { g.fillStyle = c; g.fillRect(0, y, 512, 8); }
-    g.fillStyle = "#3b2a18";
-    for (let i = 0; i < 16; i++) {  // a row of simple glyph shapes: eyes, birds, reeds
-      const x = 16 + i * 31, k = i % 4;
-      if (k === 0) { g.beginPath(); g.ellipse(x + 10, 92, 10, 5, 0, 0, 7); g.fill(); }
-      else if (k === 1) { g.fillRect(x + 8, 74, 4, 36); g.fillRect(x + 2, 74, 16, 4); }
-      else if (k === 2) { g.beginPath(); g.moveTo(x, 108); g.lineTo(x + 10, 76); g.lineTo(x + 20, 108); g.fill(); }
-      else { g.beginPath(); g.arc(x + 10, 92, 9, 0, 7); g.fill(); g.fillStyle = "#b8925a"; g.beginPath(); g.arc(x + 10, 92, 4, 0, 7); g.fill(); g.fillStyle = "#3b2a18"; }
-    }
-  }, 3, 1);
-  frieze.wrapT = THREE.ClampToEdgeWrapping;
-  const sand = new THREE.MeshStandardMaterial({ map: frieze, roughness: 0.9 });
-  const wall = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), sand); m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m); };
-  for (const side of [-1, 1]) wall(FRONT - BACK, side * W, (FRONT + BACK) / 2, -side * Math.PI / 2);
-  wall(2 * W, 0, BACK, 0);
-  // the ceiling is night sky: deep blue with gold stars, as in the tombs
-  const stars = canvasTex(256, 256, g => {
-    g.fillStyle = "#14234a"; g.fillRect(0, 0, 256, 256); g.fillStyle = "#e8c35a";
-    for (let i = 0; i < 40; i++) { const x = (i * 71) % 256, y = (i * 113) % 256; g.save(); g.translate(x, y); g.rotate(i); for (let k = 0; k < 5; k++) { g.rotate(Math.PI * 2 / 5); g.fillRect(-1, 0, 2, 6); } g.restore(); }
-  }, 4, 5);
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * W, FRONT - BACK), new THREE.MeshBasicMaterial({ map: stars }));
-  ceil.rotation.x = Math.PI / 2; ceil.position.set(0, H, (FRONT + BACK) / 2); scene.add(ceil);
-  // columns: banded shaft, a papyrus-flower capital, a square block on top
-  const bands = canvasTex(64, 256, g => {
-    g.fillStyle = "#cfa86e"; g.fillRect(0, 0, 64, 256);
-    for (const [y, c] of [[20, "#1f4e79"], [30, "#a8322a"], [40, "#1f4e79"], [200, "#a8322a"], [212, "#1f4e79"]]) { g.fillStyle = c; g.fillRect(0, y, 64, 6); }
-  }, 4, 1);
-  const stone = new THREE.MeshStandardMaterial({ map: bands, roughness: 0.85 }), plain = new THREE.MeshStandardMaterial({ color: "#c49a5f", roughness: 0.9 });
-  const capH = 0.7, shaftH = H - capH - 0.3;
-  for (const [x, z] of COLUMNS) {
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(COLUMN_R * 0.9, COLUMN_R, shaftH, 28), stone);
-    shaft.position.set(x, shaftH / 2, z);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(COLUMN_R * 1.7, COLUMN_R * 0.9, capH, 28), plain);
-    cap.position.set(x, shaftH + capH / 2, z);
-    const block = new THREE.Mesh(new THREE.BoxGeometry(COLUMN_R * 2.6, 0.3, COLUMN_R * 2.6), plain);
-    block.position.set(x, H - 0.15, z);
-    shaft.castShadow = cap.castShadow = shaft.receiveShadow = true; scene.add(shaft, cap, block);
-  }
-  // shafts of daylight slanting down the aisle from high windows, each with a faint visible beam
-  const beam = new THREE.MeshBasicMaterial({ color: "#ffc070", transparent: true, opacity: 0.025, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  for (const z of [2, -2, -6]) {
-    const from = new THREE.Vector3(-W + 0.3, H - 0.2, z + 1.2), to = new THREE.Vector3(0.6, 0, z);
-    const sun = new THREE.SpotLight("#ffd9a0", 35, 14, 0.22, 0.5, 1.2); sun.position.copy(from); sun.target.position.copy(to); scene.add(sun, sun.target);
-    const len = from.distanceTo(to), cone = new THREE.Mesh(new THREE.ConeGeometry(Math.tan(0.22) * len, len, 24, 1, true), beam);
-    cone.position.copy(from).lerp(to, 0.5); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), to.clone().sub(from).normalize()); scene.add(cone);
-  }
-  scene.add(new THREE.HemisphereLight("#ffe2b0", "#3a2616", 0.35));
+// a canvas-drawn texture, repeated rx by ry times
+function canvasTex(w, h, draw, rx = 1, ry = 1) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"));
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
 }
-({ classic: classicShell, egypt: egyptShell })[style]();
+// the sun: one shadow-casting directional light, so roofs, walls and the dome decide where daylight lands. Its
+// shadow camera covers the whole space (rooms.js bounds), since three.js leaves anything outside it unshadowed.
+function sun(color, intensity, from, to) {
+  const s = new THREE.DirectionalLight(color, intensity);
+  s.position.copy(from); s.target.position.copy(to); s.castShadow = true;
+  Object.assign(s.shadow.camera, shadowBox(from, to, bounds(style))); s.shadow.camera.updateProjectionMatrix();
+  s.shadow.mapSize.set(2048, 2048); s.shadow.bias = -0.0004; s.shadow.normalBias = 0.05;
+  scene.add(s, s.target); return s;
+}
+// a red rope on brass posts just outside the gallery's edge (behind the painting stands), so you can see why
+// you stop there
+function ropeOff() {
+  const X = W + 0.6, Z0 = BACK - 0.6, Z1 = FRONT + 0.6, posts = [];
+  for (let i = 0; i <= 8; i++) { const z = Z0 + (Z1 - Z0) * i / 8; posts.push([-X, z], [X, z]); }
+  for (let i = 1; i < 6; i++) { const x = -X + 2 * X * i / 6; posts.push([x, Z0], [x, Z1]); }
+  const post = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.04, 0.06, 0.95, 12), brass, posts.length);
+  posts.forEach(([x, z], i) => post.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, 0.475, z)));
+  scene.add(post);
+  const red = new THREE.MeshStandardMaterial({ color: "#8c1c1c", roughness: 0.6 });
+  for (const [ax, az, bx, bz] of [[-X, Z0, -X, Z1], [X, Z0, X, Z1], [-X, Z0, X, Z0], [-X, Z1, X, Z1]]) {
+    const len = Math.hypot(bx - ax, bz - az), rope = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, len, 8), red);
+    rope.position.set((ax + bx) / 2, 0.85, (az + bz) / 2); rope.rotation.set(az === bz ? 0 : Math.PI / 2, 0, az === bz ? Math.PI / 2 : 0); scene.add(rope);
+  }
+}
 
+// the Great Hypostyle Hall at Karnak, at its real size: the gallery stands in the nave between the two rows of
+// giant papyrus columns; the aisles' shorter columns run off into the gloom. Daylight only gets in through the
+// clerestory, the stone grilles between the nave's high roof and the aisles' lower one, and falls in stripes.
+function hypostyleShell() {
+  scene.background = new THREE.Color("#120c07"); scene.fog = new THREE.Fog("#120c07", 25, 70);
+  const sand = (base, n) => canvasTex(256, 256, g => {
+    g.fillStyle = base; g.fillRect(0, 0, 256, 256);
+    g.strokeStyle = "rgba(60,40,20,.35)"; g.lineWidth = 2; for (let k = 1; k < n; k++) { g.beginPath(); g.moveTo(0, k * 256 / n); g.lineTo(256, k * 256 / n); g.stroke(); }
+  });
+  const floorTex = sand("#b8955f", 4); floorTex.repeat.set(40, 40);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(110, 110), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.95 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  // the columns' carved, faded-paint skin: bands at foot and neck, rows of glyphs between
+  const skin = canvasTex(512, 512, g => {
+    g.fillStyle = "#c19a63"; g.fillRect(0, 0, 512, 512);
+    for (const [y, c] of [[30, "#5b6f86"], [44, "#9a4a36"], [470, "#9a4a36"], [484, "#5b6f86"]]) { g.fillStyle = c; g.fillRect(0, y, 512, 10); }
+    g.fillStyle = "rgba(70,45,25,.55)";
+    for (let row = 0; row < 7; row++) for (let i = 0; i < 12; i++) {
+      const x = 12 + i * 42, y = 80 + row * 54, k = (row + i) % 5;
+      if (k === 0) { g.beginPath(); g.ellipse(x + 14, y + 18, 13, 6, 0, 0, 7); g.fill(); }
+      else if (k === 1) { g.fillRect(x + 12, y, 5, 36); g.fillRect(x + 4, y, 22, 5); }
+      else if (k === 2) { g.beginPath(); g.moveTo(x, y + 36); g.lineTo(x + 14, y); g.lineTo(x + 28, y + 36); g.fill(); }
+      else if (k === 3) { g.beginPath(); g.arc(x + 14, y + 18, 12, 0, 7); g.fill(); }
+      else { g.fillRect(x + 2, y + 14, 26, 8); g.beginPath(); g.arc(x + 15, y + 10, 6, 0, 7); g.fill(); }
+    }
+  }, 6, 5);  // tiled so a glyph is hand-sized on a 21 m column, in stacked registers like the real ones
+  const stone = new THREE.MeshStandardMaterial({ map: skin, roughness: 0.9 }), plain = new THREE.MeshStandardMaterial({ color: "#a98656", roughness: 0.95 });
+  const { nave, aisles } = hypostyleColumns();
+  // instanced so ~140 columns cost a handful of draw calls; capital = the papyrus flower (open on the nave, a bud in the aisles)
+  function colonnade(spots, r, h, capTop, capH) {
+    const shaftH = h - capH - 0.6, at = (y, x, z) => new THREE.Matrix4().makeTranslation(x, y, z);
+    const parts = [[new THREE.CylinderGeometry(r * 0.92, r, shaftH, 32), stone, shaftH / 2],
+      [new THREE.CylinderGeometry(capTop, r * 0.92, capH, 32), plain, shaftH + capH / 2],
+      [new THREE.BoxGeometry(r * 1.9, 0.6, r * 1.9), plain, h - 0.3]];
+    for (const [geo, mat, y] of parts) {
+      const m = new THREE.InstancedMesh(geo, mat, spots.length);
+      spots.forEach(([x, z], i) => m.setMatrixAt(i, at(y, x, z)));
+      m.castShadow = m.receiveShadow = true; scene.add(m);
+    }
+  }
+  colonnade(nave, NAVE.r, NAVE.h, NAVE.r * 1.9, 3.2);
+  colonnade(aisles, AISLE.r, AISLE.h, AISLE.r * 0.75, 2);
+  // roofs: architraves on the nave columns, the high nave roof, the aisles' lower roofs, the clerestory grilles between
+  const roofMat = new THREE.MeshStandardMaterial({ color: "#6e5638", roughness: 1 });
+  const slab = (w, h, d, x, y, z, mat = roofMat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m; };
+  const box = bounds("hypostyle");  // the outer walls' outside faces are this box's sides
+  const zMin = box.minZ + 0.5, zMax = box.maxZ - 0.5, len = zMax - zMin, zMid = (zMin + zMax) / 2, outer = box.maxX - 0.5;
+  const clere = NAVE.rows[1] + 2.5;  // the clerestory sits just outside the nave columns
+  for (const x of NAVE.rows) slab(3, 1.6, len, x, NAVE.h + 0.8, zMid, plain);
+  slab(2 * clere + 0.6, 1, len, 0, NAVE.h + 4.6, zMid);                                // the nave's roof
+  // painted underneath, as Karnak's was: faded blue with yellow stars
+  const stars = canvasTex(256, 256, g => {
+    g.fillStyle = "#26324a"; g.fillRect(0, 0, 256, 256); g.fillStyle = "#c9a54e";
+    for (let i = 0; i < 30; i++) { g.save(); g.translate((i * 71) % 256, (i * 113) % 256); g.rotate(i); for (let k = 0; k < 5; k++) { g.rotate(Math.PI * 0.4); g.fillRect(-1.5, 0, 3, 8); } g.restore(); }
+  }, 6, 14);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(2 * clere, len), new THREE.MeshStandardMaterial({ map: stars, roughness: 1 }));
+  sky.rotation.x = Math.PI / 2; sky.position.set(0, NAVE.h + 4.09, zMid); scene.add(sky);
+  for (const side of [-1, 1]) {
+    slab(outer - clere, 1, len, side * (clere + (outer - clere) / 2), AISLE.h + 0.5, zMid);  // an aisle's roof
+    // the clerestory: stone uprights from the aisle roof up to the nave roof, with gaps the sun comes through
+    for (let z = zMin + 0.6; z < zMax; z += 1.6) slab(0.6, NAVE.h + 4.1 - (AISLE.h + 1), 0.9, side * clere, (AISLE.h + 1 + NAVE.h + 4.1) / 2, z, plain);
+    slab(0.6, 2, len, side * clere, AISLE.h + 2, zMid, plain);                           // a sill under the grilles
+    slab(1, AISLE.h + 1, len, side * outer, (AISLE.h + 1) / 2, zMid, plain);             // the outer walls
+  }
+  for (const z of [zMin, zMax]) slab(2 * outer, NAVE.h + 5, 1, 0, (NAVE.h + 5) / 2, z, plain);
+  // the sun stands high to one side; only what comes through the far clerestory reaches the nave floor
+  sun("#ffd9a0", 4.2, new THREE.Vector3(40, 75, -8), new THREE.Vector3(0, 0, -2));
+  scene.add(new THREE.HemisphereLight("#d8b98a", "#2a1a0e", 0.35));
+}
+
+// the Pantheon at its real size: a drum 43 m across, a coffered dome on top, and the oculus open to the sky. The sun
+// is real light, and the dome casts the shadow, so the only daylight inside is the column through the oculus and
+// the bright pool it makes where it lands.
+function pantheonShell() {
+  scene.background = new THREE.Color("#a9cdf5"); scene.fog = null;  // the sky, seen only through the oculus
+  const { r: R, oculus, x: cx, z: cz } = PANTHEON;
+  const pattern = canvasTex(256, 256, g => {  // granite grid, alternating porphyry circles and grey squares
+    g.fillStyle = "#d9d2c3"; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = "#7a4440"; g.beginPath(); g.arc(64, 64, 46, 0, 7); g.fill(); g.beginPath(); g.arc(192, 192, 46, 0, 7); g.fill();
+    g.fillStyle = "#8e9196"; g.fillRect(150, 22, 84, 84); g.fillRect(22, 150, 84, 84);
+    g.strokeStyle = "#b8ad98"; g.lineWidth = 4; g.strokeRect(0, 0, 128, 128); g.strokeRect(128, 128, 128, 128);
+  }, 22, 22);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 96), new THREE.MeshStandardMaterial({ map: pattern, roughness: 0.4 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(cx, 0, cz); floor.receiveShadow = true; scene.add(floor);
+  // the drum's inside: a lower order of columns and niches, an attic band of blind windows, the cornice at the top
+  const drum = canvasTex(1024, 512, g => {
+    g.fillStyle = "#e3dccd"; g.fillRect(0, 0, 1024, 512);
+    g.fillStyle = "#c9bfac"; g.fillRect(0, 230, 1024, 14); g.fillRect(0, 300, 1024, 10); g.fillStyle = "#b5a990"; g.fillRect(0, 0, 1024, 12);
+    for (let i = 0; i < 4; i++) {
+      const x = i * 256;
+      g.fillStyle = "#7d5f52"; g.fillRect(x + 70, 330, 116, 182);                      // a niche (exedra)
+      g.fillStyle = "#cdbfa5"; for (const cx2 of [x + 76, x + 168]) g.fillRect(cx2, 330, 12, 182);  // its two columns
+      g.fillStyle = "#b9a98c"; g.fillRect(x + 60, 318, 136, 14);
+      g.fillStyle = "#c2b59c"; for (let k = 0; k < 3; k++) g.fillRect(x + 30 + k * 76, 140, 44, 70);  // attic blind windows
+      g.fillStyle = "#d4cab6"; g.fillRect(x + 210, 330, 22, 182);                       // a pilaster between bays
+    }
+  }, 4, 1);
+  const marble = new THREE.MeshStandardMaterial({ map: drum, side: THREE.BackSide, shadowSide: THREE.DoubleSide, roughness: 0.6 });
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, R, 128, 1, true), marble);
+  wall.position.set(cx, R / 2, cz); wall.castShadow = wall.receiveShadow = true; scene.add(wall);
+  // the dome: a hemisphere on the drum, coffered in five rings, open at the top
+  const coffers = canvasTex(1024, 256, g => {
+    g.fillStyle = "#d8cfbf"; g.fillRect(0, 0, 1024, 256);
+    for (let i = 0; i < 28; i++) for (let j = 0; j < 5; j++) {
+      const x = i * 1024 / 28, y = 40 + j * 216 / 5;
+      g.fillStyle = "#b9ae99"; g.fillRect(x + 5, y + 4, 1024 / 28 - 10, 216 / 5 - 8);
+      g.fillStyle = "#a69a83"; g.fillRect(x + 10, y + 9, 1024 / 28 - 20, 216 / 5 - 18);
+    }
+  });
+  const top = Math.asin(oculus / R);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 48, 0, Math.PI * 2, top, Math.PI / 2 - top),
+    new THREE.MeshStandardMaterial({ map: coffers, side: THREE.BackSide, shadowSide: THREE.DoubleSide, roughness: 0.8 }));
+  dome.position.set(cx, R, cz); dome.castShadow = dome.receiveShadow = true; scene.add(dome);
+  const rimY = R + R * Math.cos(top);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(oculus, 0.25, 8, 64), new THREE.MeshStandardMaterial({ color: "#a08a5c", metalness: 0.5, roughness: 0.4 }));
+  rim.rotation.x = Math.PI / 2; rim.position.set(cx, rimY, cz); scene.add(rim);
+  // the great bronze doors behind you, open to the bright portico
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 12.5), new THREE.MeshBasicMaterial({ color: "#f3e7cf" }));
+  door.position.set(cx, 6.25, cz + R - 0.05); door.rotation.y = Math.PI; scene.add(door);
+  // the sun, slightly off vertical so the pool lands on the floor inside the gallery
+  const oc = new THREE.Vector3(cx, rimY, cz), pool = new THREE.Vector3(2.5, 0, -4.5), dir = pool.clone().sub(oc).normalize();
+  sun("#fff1d6", 9, oc.clone().addScaledVector(dir, -30), pool);
+  // the column of light itself: parallel rays, so a cylinder the oculus' width, not a cone to a point
+  const shaftLen = oc.distanceTo(pool), shaft = new THREE.Mesh(new THREE.CylinderGeometry(oculus, oculus, shaftLen, 48, 1, true),
+    new THREE.MeshBasicMaterial({ color: "#fff3dc", transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  shaft.position.copy(oc).lerp(pool, 0.5); shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().negate()); scene.add(shaft);
+  scene.add(new THREE.HemisphereLight("#fff6e6", "#8a7a66", 0.75));  // light bouncing off all that marble
+}
+
+const brass = new THREE.MeshStandardMaterial({ color: "#b8873a", metalness: 0.85, roughness: 0.3 });
+const open = style !== "classic";  // the big spaces: no gallery walls, a rope round the edge, paintings on stands
+({ classic: classicShell, hypostyle: hypostyleShell, pantheon: pantheonShell })[style]();
+if (open) ropeOff();
+camera.far = open ? 150 : 60; camera.updateProjectionMatrix();
+
+// a hidden spotlight from the walled room's ceiling; the big spaces have no ceiling to hide one in
 function spot(target, from, intensity, angle) {
+  if (open) return;
   const s = new THREE.SpotLight("#ffe2bf", intensity, 14, angle, 0.55, 1.6);
   s.position.copy(from); s.target.position.copy(target);
   s.castShadow = true; s.shadow.mapSize.set(512, 512); s.shadow.bias = -0.0005;
@@ -191,7 +292,6 @@ function spot(target, from, intensity, angle) {
 // a piece you can click: where to stand, what to look at, and its caption
 const pieces = [];
 function piece(objs, name, note, stand, look) { for (const o of objs) { o.userData = { name, note, stand, look }; pieces.push(o); } }
-const brass = new THREE.MeshStandardMaterial({ color: "#b8873a", metalness: 0.85, roughness: 0.3 });
 
 // left wall: empty frames; a faint "coming soon" so they read as waiting, not broken
 function emptyCanvas(label) {
@@ -212,6 +312,17 @@ for (const [i, [z, kind]] of [[2, "Painting"], [-2, "Drawing"], [-6, "Painting"]
   art.rotation.y = Math.PI / 2; art.position.x = 0.045;
   frame.add(art); frame.position.set(-W + 0.05, 2.1, z); frame.castShadow = true; scene.add(frame);
   piece([frame], `${kind} ${i + 1}`, "wall of paintings + drawings", { x: -W + 2.6, z }, { x: -W, y: 2.05, z });
+  if (open) {  // no wall to hang on: a freestanding panel on two feet, with a brass picture light you can see
+    const panelMat = new THREE.MeshStandardMaterial({ color: "#2b2a2e", roughness: 0.8 });
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.0, 2.0), panelMat); panel.position.set(-W - 0.04, 1.6, z);
+    panel.castShadow = panel.receiveShadow = true; scene.add(panel);
+    for (const dz of [-0.75, 0.75]) { const foot = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.14), panelMat); foot.position.set(-W - 0.04, 0.04, z + dz); scene.add(foot); }
+    const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 12), brass); lamp.rotation.x = Math.PI / 2; lamp.position.set(-W + 0.28, 3.2, z);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.3, 6), brass); arm.rotation.z = Math.PI / 2; arm.position.set(-W + 0.13, 3.2, z);
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.01, 0.84), new THREE.MeshBasicMaterial({ color: "#fff1cf" })); glow.position.set(-W + 0.28, 3.165, z);
+    scene.add(lamp, arm, glow);
+    const l = new THREE.SpotLight("#ffe7c2", 12, 4, 0.85, 0.6, 1.5); l.position.set(-W + 0.28, 3.15, z); l.target.position.set(-W, 1.9, z); scene.add(l, l.target);
+  }
   spot(new THREE.Vector3(-W, 2.1, z), new THREE.Vector3(-W + 2.2, H - 0.1, z), 40, 0.42);
 }
 
@@ -269,8 +380,11 @@ const shapes = [new THREE.TorusKnotGeometry(0.28, 0.09, 90, 10), new THREE.Icosa
   spot(new THREE.Vector3(-W + 1.3, 0.4, BACK + 1.1), new THREE.Vector3(-W + 2.6, H - 0.1, BACK + 2.4), 30, 0.35);
 }
 
+// in the big spaces the sun is real, so everything it lights must also take the shadows of the roofs and the dome
+if (open) scene.traverse(o => { if (o.isMesh || o.isInstancedMesh) o.receiveShadow = true; });
+
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
-walkThrough({ renderer, scene, camera, me: walker({ x: 0, z: 5, yaw: 0, pitch: -0.03 }, ROOMS[style].floor), pieces,
+walkThrough({ renderer, scene, camera, me: walker({ x: 0, z: 5, yaw: 0, pitch: -0.03 }), pieces,
   onFrame: now => { for (const s of spinners) s.rotation.y = now * 0.0004; } });
 </script>
 </html>
