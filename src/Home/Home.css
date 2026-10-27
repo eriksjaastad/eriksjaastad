@@ -112,7 +112,7 @@ body.home .ghost { font: 12px var(--mono); color: var(--ink-dim); }
 .hero h1 { font: 800 clamp(48px, 9vw, 96px)/.92 var(--display); letter-spacing: -.035em; margin: 0 0 14px; text-wrap: balance; }
 .say { font: 14px var(--mono); color: var(--amber); margin: 0 0 18px; }
 .hero p { max-width: 52ch; color: var(--ink); margin: 0; font-size: 18px; }
-.paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.paths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }  /* rows of three: new paths start the next row */
 .path { display: grid; gap: 4px; text-decoration: none; color: var(--ink); padding: 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, transform .2s; }
 .path:hover { border-color: var(--neon); transform: translateY(-2px); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.35); }
 .path:hover b { color: var(--neon); text-shadow: 0 0 12px rgba(255,106,0,.55); }
@@ -133,6 +133,7 @@ body.away { overflow: hidden; }
 @media (max-width: 640px) {
   .hero { grid-template-columns: 1fr; justify-items: start; }
   #buddy { max-width: 180px; }
+  .paths { grid-template-columns: 1fr; }
   .ticks, .heckles { font-size: 10px; }
   .e0 .screen { font-size: 9px; }
 }
