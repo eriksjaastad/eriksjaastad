@@ -66,6 +66,26 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
   background-image: linear-gradient(90deg, transparent 22px, #e08a8a 22px 24px, transparent 24px), repeating-linear-gradient(transparent 0 27px, #9cc3e6 27px 29px); transform: rotate(-1.5deg); }
 #dial .number { font: 600 28px var(--mono); letter-spacing: .08em; color: var(--ink); min-height: 1.2em; }
 #dial .line { font: 13px var(--mono); color: #ffc46b; min-height: 2.6em; max-width: 260px; }
+/* the boombox up close: brushed silver, two big speakers, the deck in the middle with its piano keys */
+#boombox .bb { width: min(94vw, 880px); max-height: 100%; overflow: auto; margin: auto; background: linear-gradient(#d9dbe0, #a9acb3); border-radius: 18px 18px 10px 10px; padding: 14px; color: #1d1f24; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+#boombox .top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+#boombox .band { flex: 1 1 260px; height: 34px; border-radius: 6px; background: #20242c; position: relative; overflow: hidden; color: #9fc6ff; font: 10px var(--mono); display: flex; justify-content: space-between; align-items: center; padding: 0 10px; }
+#boombox .band .needle { position: absolute; top: 3px; bottom: 3px; width: 2px; background: #ff7a2f; }
+#boombox .body { display: grid; grid-template-columns: 1fr minmax(240px, 1.3fr) 1fr; gap: 12px; align-items: center; }
+#boombox .spk { aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #3a3d44 0 18%, #15171b 19% 62%, #2a2d33 63% 66%, #15171b 67%), #15171b; border: 6px solid #c8cbd1;
+  background-image: radial-gradient(circle, #3a3d44 0 16%, transparent 17%), radial-gradient(rgba(255,255,255,.08) 1px, transparent 1.5px); background-size: 100% 100%, 7px 7px; }
+#boombox .mid { display: grid; gap: 10px; justify-items: center; }
+#boombox .vu { display: flex; gap: 8px; } #boombox .vu canvas { width: 92px; height: 52px; background: #f3e9cc; border-radius: 4px; border: 2px solid #6d7078; }
+#boombox .deck { width: 100%; background: #2a2d33; border-radius: 8px; padding: 10px; display: grid; justify-items: center; gap: 6px; }
+#boombox .deck svg { width: 100%; max-width: 260px; height: auto; }
+#boombox .deck .status { font: 11px var(--mono); color: #c8ccd4; min-height: 1.3em; text-align: center; }
+#boombox .keys { display: flex; gap: 4px; }
+#boombox button { font: 600 11px var(--mono); color: #1d1f24; background: linear-gradient(#f4f5f7, #b9bcc3); border: 1px solid #6d7078; border-radius: 4px; padding: 8px 9px; cursor: pointer; }
+#boombox button.on { background: linear-gradient(#ffb36b, #ff6a00); color: #1a0e05; }
+#boombox .power.on { box-shadow: 0 0 10px #ff6a00; }
+#boombox .counter { font: 600 13px var(--mono); background: #111; color: #e8e8e8; padding: 2px 8px; border-radius: 3px; letter-spacing: .15em; }
+#boombox .close { margin-top: 10px; }
+@media (max-width: 640px) { #boombox .body { grid-template-columns: 1fr 1fr; } #boombox .mid { grid-column: 1 / -1; grid-row: 1; } }
 #dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
 @media (max-width: 700px) { .page { padding: 16px; gap: 10px; } }
 </style>
@@ -96,6 +116,32 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
     <button class="hang">Hang up</button>
   </div>
 </div></dialog>
+<dialog id="boombox" aria-label="Boombox"><div class="bb">
+  <div class="top">
+    <button class="power" data-key="power" aria-pressed="false">POWER</button>
+    <div class="band" aria-hidden="true"><span>FM 88</span><span>92</span><span>96</span><span>100</span><span>104</span><span>108 MHz</span><i class="needle" style="left:40%"></i></div>
+    <div role="group" aria-label="Tape or radio"><button data-key="tape" class="on" aria-pressed="true">TAPE</button><button data-key="radio" aria-pressed="false">RADIO</button></div>
+  </div>
+  <div class="body">
+    <div class="spk" aria-hidden="true"></div>
+    <div class="mid">
+      <div class="vu" aria-hidden="true"><canvas width="184" height="104"></canvas><canvas width="184" height="104"></canvas></div>
+      <div class="deck">
+        <svg viewBox="0 0 260 150" aria-label="The cassette deck"><rect x="20" y="10" width="220" height="130" rx="8" fill="#11131a" stroke="#555"/>
+          <g id="cassette"><rect x="40" y="30" width="180" height="100" rx="6" fill="#f2efe6"/><rect x="52" y="40" width="156" height="30" fill="#ff8a3d"/>
+            <text id="label" x="130" y="60" text-anchor="middle" font-family="monospace" font-size="13" fill="#1a1210">MIXTAPE · SIDE A</text>
+            <rect x="75" y="80" width="110" height="36" rx="18" fill="#2a2d33"/>
+            <g id="reelL" transform="translate(98 98)"><circle r="14" fill="#f2efe6"/><path d="M0-10V10M-10 0H10M-7-7L7 7M-7 7L7-7" stroke="#2a2d33" stroke-width="3"/></g>
+            <g id="reelR" transform="translate(162 98)"><circle r="14" fill="#f2efe6"/><path d="M0-10V10M-10 0H10M-7-7L7 7M-7 7L7-7" stroke="#2a2d33" stroke-width="3"/></g></g></svg>
+        <div class="status" aria-live="polite"></div>
+        <div class="keys"><button data-key="rew" aria-label="Rewind">◀◀</button><button data-key="play" aria-label="Play">▶</button><button data-key="ff" aria-label="Fast-forward">▶▶</button><button data-key="stop" aria-label="Stop">■</button><button data-key="eject" aria-label="Eject">⏏</button></div>
+        <div><button data-key="flip" hidden>Flip the tape</button> <span class="counter">000</span></div>
+      </div>
+    </div>
+    <div class="spk" aria-hidden="true"></div>
+  </div>
+  <button class="close">Close</button>
+</div></dialog>
 <dialog id="photo" aria-label="Photo"><figure><img alt=""><figcaption></figcaption><button class="close">Back to the album</button></figure></dialog>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -107,6 +153,8 @@ import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
+import { boombox, TAPE } from "./boombox.js";
+import { song, notesBetween } from "./music.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -380,6 +428,29 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   scene.add(chair);
 }
 
+// right wall: the boombox, Erik's parents' silver AIWA TPR-968E, on a wooden crate. Standing there, tap it.
+{
+  const crate = new THREE.Group(), slat = new THREE.MeshStandardMaterial({ color: "#8a6440", roughness: 0.85 });
+  for (const y of [0.06, 0.2, 0.34]) for (const z of [-0.26, 0.26]) crate.add(mesh(new THREE.BoxGeometry(0.42, 0.1, 0.03), slat, 0, y, z));
+  for (const y of [0.06, 0.2, 0.34]) for (const x of [-0.2, 0.2]) crate.add(mesh(new THREE.BoxGeometry(0.03, 0.1, 0.5), slat, x, y, 0));
+  crate.add(mesh(new THREE.BoxGeometry(0.44, 0.03, 0.56), slat, 0, 0.41, 0));
+  crate.position.set(3.65, 0, 1.0); crate.traverse(m => { m.castShadow = m.receiveShadow = true; }); scene.add(crate);
+  const silver = new THREE.MeshStandardMaterial({ color: "#d4d7dd", metalness: 0.2, roughness: 0.4 }), dark = new THREE.MeshStandardMaterial({ color: "#16181c", roughness: 0.7 });
+  const box = new THREE.Group(); box.name = "boombox";
+  box.add(mesh(new THREE.BoxGeometry(0.14, 0.34, 0.62), silver, 0, 0.17, 0));                       // the body, facing -x into the room
+  for (const z of [-0.2, 0.2]) {                                                                       // two big speakers and their tweeters
+    box.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.01, 32), dark, -0.071, 0.14, z, 0, 0, Math.PI / 2));
+    box.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.012, 20), silver, -0.075, 0.14, z, 0, 0, Math.PI / 2));
+    box.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 20), dark, -0.071, 0.28, z * 1.25, 0, 0, Math.PI / 2));
+  }
+  box.add(mesh(new THREE.BoxGeometry(0.01, 0.12, 0.16), dark, -0.071, 0.12, 0));                    // the cassette door
+  box.add(mesh(new THREE.BoxGeometry(0.01, 0.04, 0.16), new THREE.MeshStandardMaterial({ color: "#f3e9cc" }), -0.071, 0.235, 0));  // the VU meters
+  box.add(mesh(new THREE.BoxGeometry(0.01, 0.035, 0.44), new THREE.MeshStandardMaterial({ color: "#20242c" }), -0.071, 0.305, 0)); // the tuning band
+  const handle = mesh(new THREE.TorusGeometry(0.26, 0.012, 8, 32, Math.PI), silver, 0, 0.34, 0, 0, Math.PI / 2, 0); box.add(handle);
+  box.position.set(3.65, 0.425, 1.0); box.traverse(m => { m.castShadow = true; }); scene.add(box);
+  piece([box], "The boombox", "tap it: power, tape or radio", SPOTS.boombox);
+}
+
 // a few slow motes of light drifting about: the "magical" part of the cabin
 const motes = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(
   Array.from({ length: 120 }, (_, i) => [((i * 97) % 80) / 10 - 4, ((i * 53) % 28) / 10 + 0.1, ((i * 31) % 80) / 10 - 4]).flat(), 3)),
@@ -441,7 +512,7 @@ photoEl.addEventListener("close", keepFocus);  // the browser returns focus to t
 // while reading, the walker's window listener never sees keydown (capture runs first); Escape still closes the top
 // dialog, which is the browser's default action. Arrows turn the pages when the book is on top.
 document.addEventListener("keydown", e => {
-  if (dialEl.open) { e.stopPropagation(); return; }  // the walker doesn't see keys while you're on the phone either
+  if (dialEl.open || bbEl.open) { e.stopPropagation(); return; }  // the walker doesn't see keys while you're at the phone or the boombox
   if (!reading) return;
   e.stopPropagation();
   if (!photoEl.open && e.key === "ArrowRight") turn(1);
@@ -527,13 +598,100 @@ let dialLast = null;
   dialLast = now; requestAnimationFrame(spin);
 })(performance.now());
 
+// ---------- the boombox: boombox.js runs the deck, music.js writes the songs, this plays them on the audio clock ----------
+const bbEl = document.getElementById("boombox"), deck = boombox(), bbVoices = [];
+let bbOut = null, analyser = null, player = null, noise = null;
+function bbAudio() {  // the boombox's own output: everything through one gain and an analyser for the VU meters
+  if (bbOut) return bbOut;
+  const a = sound(); bbOut = a.createGain(); bbOut.gain.value = 0.5; analyser = a.createAnalyser(); analyser.fftSize = 512;
+  bbOut.connect(analyser); analyser.connect(a.destination);
+  const buf = a.createBuffer(1, a.sampleRate, a.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  noise = buf; return bbOut;
+}
+function voice(n, at) {  // one note of a stand-in song
+  const a = sound(), out = bbAudio(), g = a.createGain(); g.connect(out);
+  const env = (peak, len) => { g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, at + len); };
+  let src;
+  if (n.voice === "kick") { src = a.createOscillator(); src.frequency.setValueAtTime(140, at); src.frequency.exponentialRampToValueAtTime(40, at + 0.12); env(0.9, 0.18); }
+  else if (n.voice === "snare" || n.voice === "hat") {
+    src = a.createBufferSource(); src.buffer = noise; const f = a.createBiquadFilter(); f.type = n.voice === "hat" ? "highpass" : "bandpass"; f.frequency.value = n.voice === "hat" ? 7000 : 1800;
+    src.disconnect(); src.connect(f); f.connect(g); env(n.voice === "hat" ? 0.12 : 0.35, n.dur); src.start(at); src.stop(at + n.dur + 0.02); bbVoices.push(src); return;
+  } else {
+    src = a.createOscillator(); src.type = { bass: "triangle", chord: "sawtooth", lead: "square" }[n.voice]; src.frequency.value = n.freq;
+    env({ bass: 0.35, chord: 0.05, lead: 0.07 }[n.voice], n.dur);
+  }
+  src.connect(g); src.start(at); src.stop(at + n.dur + 0.02); bbVoices.push(src);
+}
+function hush() { for (const v of bbVoices.splice(0)) { try { v.stop(); } catch { /* already ended */ } } player = null; }
+function loopNoise(gain, filter) {  // the tape's hiss between songs, or the whir of winding
+  const a = sound(), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = noise; src.loop = true; f.type = "bandpass"; f.frequency.value = filter; g.gain.value = gain;
+  src.connect(f); f.connect(g); g.connect(bbAudio()); src.start(); bbVoices.push(src);
+}
+// each frame: whatever the deck says should be heard, scheduled a quarter second ahead on the audio clock
+function playDeck(np) {
+  const a = audio;
+  if (!a) return;
+  const key = np.sound === "song" ? `${np.side}${np.index}` : np.sound;
+  if (np.sound === "song") {
+    const expect = player && player.key === key ? a.currentTime - player.start : null;
+    if (expect === null || Math.abs(expect - np.offset) > 0.2) { hush(); player = { key, tune: song(np.song.seed), start: a.currentTime - np.offset, cursor: np.offset }; }
+    const until = a.currentTime - player.start + 0.25;
+    for (const n of notesBetween(player.tune, player.cursor, until)) voice(n, Math.max(a.currentTime, player.start + n.t));
+    player.cursor = until;
+  } else if (!player || player.key !== key) {
+    hush(); player = { key };
+    if (np.sound === "hiss") loopNoise(0.03, 3000); else if (np.sound === "wind") loopNoise(0.06, 900);
+  }
+}
+const vu = [...bbEl.querySelectorAll(".vu canvas")], level = new Float32Array(512);
+function drawVU(i, v) {
+  const g = vu[i].getContext("2d"), w = vu[i].width, h = vu[i].height, a = -2.3 + v * 1.6;
+  g.clearRect(0, 0, w, h); g.strokeStyle = "#2a2a2a"; g.lineWidth = 2; g.beginPath(); g.arc(w / 2, h * 1.05, h * 0.85, -2.4, -0.74); g.stroke();
+  g.strokeStyle = "#c0392b"; g.beginPath(); g.arc(w / 2, h * 1.05, h * 0.85, -1.05, -0.74); g.stroke();
+  g.fillStyle = "#2a2a2a"; g.font = "bold 14px monospace"; g.fillText("VU", w / 2 - 10, h * 0.62);
+  g.strokeStyle = "#111"; g.lineWidth = 3; g.beginPath(); g.moveTo(w / 2, h * 1.05); g.lineTo(w / 2 + Math.cos(a) * h * 0.95, h * 1.05 + Math.sin(a) * h * 0.95); g.stroke();
+}
+let needle = [0, 0], spinAngle = 0;
+function drawBoombox(dt) {
+  const st = deck.state, np = deck.nowPlaying();
+  for (const b of bbEl.querySelectorAll("[data-key]")) {
+    const k = b.dataset.key, on = k === "power" ? st.power : k === "tape" || k === "radio" ? st.mode === k : st.motion === k;
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+  }
+  bbEl.querySelector("[data-key=flip]").hidden = st.tapeIn;
+  bbEl.querySelector("#cassette").setAttribute("transform", st.tapeIn ? "" : "translate(0 -24)");
+  bbEl.querySelector("#label").textContent = `MIXTAPE · SIDE ${st.side}`;
+  bbEl.querySelector(".counter").textContent = String(Math.floor(st.pos[st.side]) % 1000).padStart(3, "0");
+  spinAngle += (st.motion === "play" ? 120 : st.motion === "ff" ? 1400 : st.motion === "rew" ? -1400 : 0) * dt;
+  for (const id of ["reelL", "reelR"]) { const r = bbEl.querySelector("#" + id), [x, y] = id === "reelL" ? [98, 98] : [162, 98]; r.setAttribute("transform", `translate(${x} ${y}) rotate(${spinAngle})`); }
+  bbEl.querySelector(".status").textContent = !st.power ? "off" : st.mode === "radio" ? "radio: coming soon" : !st.tapeIn ? `the tape is out: side ${st.side} faces you` :
+    np.sound === "song" ? `${np.song.title}` : np.sound === "wind" ? (st.motion === "ff" ? "fast-forwarding" : "rewinding") : np.sound === "hiss" ? "between songs" : st.motion === "stop" ? "stopped" : "";
+  let rms = 0;
+  if (analyser) { analyser.getFloatTimeDomainData(level); for (const v of level) rms += v * v; rms = Math.sqrt(rms / level.length); }
+  const target = Math.min(1, rms * 9);
+  needle = needle.map((n, i) => n + (target * (i ? 0.95 : 1) - n) * Math.min(1, dt * 8));
+  needle.forEach((v, i) => drawVU(i, v));
+}
+for (const b of bbEl.querySelectorAll("[data-key]")) b.addEventListener("click", () => { sound(); bbAudio(); deck.press(b.dataset.key); });
+bbEl.querySelector(".close").onclick = () => bbEl.close();
+bbEl.addEventListener("click", e => { if (e.target === bbEl) bbEl.close(); });  // the music keeps playing in the room
+let bbLast = null;
+(function run(now) {  // the deck runs whether or not you're looking at it
+  const dt = bbLast === null ? 0 : Math.min(0.25, (now - bbLast) / 1000); bbLast = now;
+  deck.frame(dt); playDeck(deck.nowPlaying());
+  if (bbEl.open) drawBoombox(dt);
+  requestAnimationFrame(run);
+})(performance.now());
+
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
 const open = hinges();
 let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
   onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial
-    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && o.name !== "phone" && o.name !== "notepad") o = o.parent;
-    if (o?.name === "phone" || o?.name === "notepad") openDial();
+    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && !["phone", "notepad", "boombox"].includes(o.name)) o = o.parent;
+    if (o?.name === "boombox") bbEl.showModal();
+    else if (o?.name === "phone" || o?.name === "notepad") openDial();
     else if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
     return !!o;
   },
