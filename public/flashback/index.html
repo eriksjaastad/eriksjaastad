@@ -153,7 +153,8 @@ import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
-import { boombox, player } from "./boombox.js";
+import { boombox, player, TAPE, GAP } from "./boombox.js";
+import { song, notesBetween } from "./music.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -598,43 +599,88 @@ let dialLast = null;
 })(performance.now());
 
 // ---------- the boombox: boombox.js runs the deck, music.js writes the songs, this plays them on the audio clock ----------
-const bbEl = document.getElementById("boombox"), deck = boombox(), bbVoices = [];
-let bbOut = null, analyser = null, noise = null, beds = [];  // beds: the scheduled hiss/whir loops
+const bbEl = document.getElementById("boombox"), deck = boombox();
+let bbOut = null, analyser = null, sounding = [];  // sounding: the sources playing now (a side, the whir)
+const RATE = 22050, recordings = new Map(), recordingNow = new Set();  // side -> its songs' recorded loops
+let tapeError = null;  // why a side couldn't be recorded, shown on the deck until it works
+const makeNoise = ctx => { const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; };
+let liveNoise = null;
 function bbAudio() {  // the boombox's own output: everything through one gain and an analyser for the VU meters
   if (bbOut) return bbOut;
   const a = sound(); bbOut = a.createGain(); bbOut.gain.value = 0.5; analyser = a.createAnalyser(); analyser.fftSize = 512;
-  bbOut.connect(analyser); analyser.connect(a.destination);
-  const buf = a.createBuffer(1, a.sampleRate, a.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  noise = buf; return bbOut;
+  bbOut.connect(analyser); analyser.connect(a.destination); liveNoise = makeNoise(a);
+  return bbOut;
 }
-function voice(n, at) {  // one note of a stand-in song
-  const a = sound(), out = bbAudio(), g = a.createGain(); g.connect(out);
-  const env = (peak, len) => { g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, at + len); };
+function voice(ctx, dest, noise, n, at) {  // one note of a stand-in song, into a context's destination
+  const g = ctx.createGain(); g.connect(dest);
+  const env = (peak, len) => { g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.01, len)); };
   let src;
-  if (n.voice === "kick") { src = a.createOscillator(); src.frequency.setValueAtTime(140, at); src.frequency.exponentialRampToValueAtTime(40, at + 0.12); env(0.9, 0.18); }
+  if (n.voice === "kick") { src = ctx.createOscillator(); src.frequency.setValueAtTime(140, at); src.frequency.exponentialRampToValueAtTime(40, at + 0.12); env(0.9, Math.min(0.18, n.dur + 0.06)); src.connect(g); }
   else if (n.voice === "snare" || n.voice === "hat") {
-    src = a.createBufferSource(); src.buffer = noise; const f = a.createBiquadFilter(); f.type = n.voice === "hat" ? "highpass" : "bandpass"; f.frequency.value = n.voice === "hat" ? 7000 : 1800;
-    src.disconnect(); src.connect(f); f.connect(g); env(n.voice === "hat" ? 0.12 : 0.35, n.dur); src.start(at); src.stop(at + n.dur + 0.02); bbVoices.push(src); return;
+    src = ctx.createBufferSource(); src.buffer = noise; const f = ctx.createBiquadFilter(); f.type = n.voice === "hat" ? "highpass" : "bandpass"; f.frequency.value = n.voice === "hat" ? 7000 : 1800;
+    src.connect(f); f.connect(g); env(n.voice === "hat" ? 0.12 : 0.35, n.dur);
   } else {
-    src = a.createOscillator(); src.type = { bass: "triangle", chord: "sawtooth", lead: "square" }[n.voice]; src.frequency.value = n.freq;
-    env({ bass: 0.35, chord: 0.05, lead: 0.07 }[n.voice], n.dur);
+    src = ctx.createOscillator(); src.type = { bass: "triangle", chord: "sawtooth", lead: "square" }[n.voice]; src.frequency.value = n.freq;
+    env({ bass: 0.35, chord: 0.05, lead: 0.07 }[n.voice], n.dur); src.connect(g);
   }
-  src.connect(g); src.start(at); src.stop(at + n.dur + 0.02); bbVoices.push(src);
+  src.start(at); src.stop(at + n.dur + 0.01);
 }
-// the player (boombox.js) decides what plays when; this is its audio: notes, the hiss/whir bed, and cancelling
-const tape = player(deck, {
+// record a side of the mixtape once, like dubbing a cassette: each song's loop (music.js) rendered offline into a
+// short buffer; playing the side repeats each loop for its song's length, with the hiss in the gaps
+async function recordSide(side) {
+  if (recordingNow.has(side) || recordings.has(side)) return;
+  recordingNow.add(side);
+  try {
+    const loops = [];
+    for (const t of TAPE[side]) {
+      const tune = song(t.seed), off = new OfflineAudioContext(1, Math.ceil(tune.length * RATE), RATE), noise = makeNoise(off), dest = off.createGain();
+      dest.connect(off.destination);
+      for (const n of notesBetween(tune, 0, tune.length)) voice(off, dest, noise, { ...n, dur: Math.min(n.dur, tune.length - n.t) }, n.t);
+      loops.push(await off.startRendering());
+    }
+    recordings.set(side, loops);
+    tapeError = null;
+    tape.recorded();
+  } catch (err) {
+    tapeError = `the tape won't play here: ${err.message}`;  // shown on the deck, not swallowed
+    console.error(err);
+  } finally { recordingNow.delete(side); }
+}
+// play a side from tape position `from` at audio time `at`: every remaining song's loop and gap scheduled at once
+function playSide(side, at, from) {
+  const a = sound(), out = bbAudio();
+  let start = 0;
+  TAPE[side].forEach((t, i) => {
+    const end = start + t.length, gapEnd = end + GAP;
+    if (end > from) {  // the song: its loop repeated from the right place until the song ends
+      const begin = Math.max(from, start), loop = recordings.get(side)[i], src = a.createBufferSource();
+      src.buffer = loop; src.loop = true; src.connect(out);
+      src.start(at + (begin - from), (begin - start) % loop.duration); src.stop(at + (end - from)); sounding.push(src);
+    }
+    if (gapEnd > from) {  // the hiss between this song and the next
+      const begin = Math.max(from, end), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+      src.buffer = liveNoise; src.loop = true; f.type = "bandpass"; f.frequency.value = 3000; g.gain.value = 0.03;
+      src.connect(f); f.connect(g); g.connect(out); src.start(at + (begin - from)); src.stop(at + (gapEnd - from)); sounding.push(src);
+    }
+    start = gapEnd;
+  });
+}
+// the player (boombox.js) decides what sounds when; this is its audio
+const tape = player(deck, {  // (both sides start recording in the background as soon as the page loads, below)
   now: () => sound().currentTime,
-  note: (n, at) => voice(n, at),
-  bed(kind, at) {  // from `at` on, the bed is `kind`: whatever bed was due stops then
-    for (const b of beds.splice(0)) { try { b.stop(at); } catch { /* already ended */ } }
-    if (kind === "none") return;
-    const a = sound(), out = bbAudio(), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    src.buffer = noise; src.loop = true; f.type = "bandpass"; f.frequency.value = kind === "wind" ? 900 : 3000; g.gain.value = kind === "wind" ? 0.06 : 0.03;
-    src.connect(f); f.connect(g); g.connect(out); src.start(at); beds.push(src); bbVoices.push(src);
+  ready: side => recordings.has(side),
+  record: side => { recordSide(side); },
+  play: playSide,
+  wind(at, until) {
+    const a = sound(), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = liveNoise; src.loop = true; f.type = "bandpass"; f.frequency.value = 900; g.gain.value = 0.06;
+    src.connect(f); f.connect(g); g.connect(bbAudio()); src.start(at); src.stop(until); sounding.push(src);
   },
-  cancel() { for (const v of bbVoices.splice(0)) { try { v.stop(); } catch { /* already ended */ } } beds = []; },
+  cancel() { for (const v of sounding.splice(0)) { try { v.stop(); } catch { /* already ended */ } } },
 });
-setInterval(() => { if (audio) tape.pump(); }, 100);  // a plain timer, not screen redraws: the player schedules 2.5 s ahead
+// record both sides of the mixtape in the background now (offline rendering, off the main thread; only each song's
+// short loop), so they're ready before you reach the boombox; PLAY before then holds the tape until they are
+(async () => { await recordSide("A"); await recordSide("B"); })();
 const vu = [...bbEl.querySelectorAll(".vu canvas")], level = new Float32Array(512);
 function drawVU(i, v) {
   const g = vu[i].getContext("2d"), w = vu[i].width, h = vu[i].height, a = -2.3 + v * 1.6;
@@ -656,8 +702,9 @@ function drawBoombox(t, dt) {
   bbEl.querySelector(".counter").textContent = String(Math.floor(st.pos[st.side]) % 1000).padStart(3, "0");
   spinAngle += (st.motion === "play" ? 120 : st.motion === "ff" ? 1400 : st.motion === "rew" ? -1400 : 0) * dt;
   for (const id of ["reelL", "reelR"]) { const r = bbEl.querySelector("#" + id), [x, y] = id === "reelL" ? [98, 98] : [162, 98]; r.setAttribute("transform", `translate(${x} ${y}) rotate(${spinAngle})`); }
-  bbEl.querySelector(".status").textContent = !st.power ? "off" : st.mode === "radio" ? "radio: coming soon" : !st.tapeIn ? `the tape is out: side ${st.side} faces you` :
-    np.sound === "song" ? `${np.song.title}` : np.sound === "wind" ? (st.motion === "ff" ? "fast-forwarding" : "rewinding") : np.sound === "hiss" ? "between songs" : st.motion === "stop" ? "stopped" : "";
+  bbEl.querySelector(".status").textContent = tapeError ?? (!st.power ? "off" : st.mode === "radio" ? "radio: coming soon" : !st.tapeIn ? `the tape is out: side ${st.side} faces you` :
+    tape.waiting ? "loading the tape..." :
+    np.sound === "song" ? `${np.song.title}` : np.sound === "wind" ? (st.motion === "ff" ? "fast-forwarding" : "rewinding") : np.sound === "hiss" ? "between songs" : st.motion === "stop" ? "stopped" : "");
   let rms = 0;
   if (analyser) { analyser.getFloatTimeDomainData(level); for (const v of level) rms += v * v; rms = Math.sqrt(rms / level.length); }
   const target = Math.min(1, rms * 9);

@@ -1,11 +1,13 @@
 // Stand-in songs for the boombox, made up from a seed so nothing copyrighted ships: a '90s-ish loop of drums, bass,
-// chords and a melody over a four-chord progression. A song is a list of notes in one loop; notesBetween() hands a
-// player the notes due in a time window, looping, so it can schedule a little ahead of the audio clock.
+// chords and a melody over a four-chord progression. A song is a list of notes in one loop; notesBetween() gives the
+// notes starting in a window of time, looping (the boombox renders one loop of each song from it).
 
 // a small seeded random number generator, so the same seed is always the same song
 function rng(seed) {
-  let s = seed >>> 0 || 1;
-  return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  let s = Math.imul(seed, 2654435761) >>> 0 || 1;  // spread small seeds out; raw xorshift starts tiny for them
+  const next = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  for (let i = 0; i < 4; i++) next();
+  return next;
 }
 const hz = midi => 440 * 2 ** ((midi - 69) / 12);
 const PROGRESSIONS = [[0, 5, 3, 4], [0, 3, 4, 4], [5, 3, 0, 4], [0, 4, 5, 3]];  // scale degrees: I-vi-IV-V and friends

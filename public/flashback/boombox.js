@@ -1,7 +1,6 @@
 // The boombox's tape deck and switches, kept out of the page so they can be tested in node. Time is the audio
 // clock: every key press and question carries the time, and the tape's position is worked out from when the
 // transport last changed, so it can't drift from the music however unevenly the page's frames arrive.
-import { song, notesBetween } from "./music.js";
 
 // the mixtape: an A side and a B side of stand-in songs (music.js seeds), each a set length on the tape
 export const TAPE = {
@@ -13,27 +12,6 @@ export const WIND = 12;                   // fast-forward and rewind run this ma
 export const sideLength = side => TAPE[side].reduce((s, t) => s + t.length + GAP, 0);
 const SPEED = { stop: 0, play: 1, ff: WIND, rew: -WIND };
 const TAPE_KEYS = ["play", "ff", "rew", "stop", "eject", "flip"];
-
-// The notes recorded on a side between two tape positions, each with its tape position `pos`: only inside songs
-// (the gaps are blank), each note exactly once however the span is cut up.
-const tunes = new Map();
-export function notesOnTape(side, from, to) {
-  const out = [];
-  if (!(to > from)) return out;
-  let start = 0;
-  for (const t of TAPE[side]) {
-    const lo = Math.max(from, start), hi = Math.min(to, start + t.length);
-    if (hi > lo) {
-      if (!tunes.has(t.seed)) tunes.set(t.seed, song(t.seed));
-      for (const n of notesBetween(tunes.get(t.seed), lo - start, hi - start)) {
-        const pos = start + n.t;
-        out.push({ ...n, pos, dur: Math.min(n.dur, start + t.length - pos) });  // no note rings past its song's end
-      }
-    }
-    start += t.length + GAP;
-  }
-  return out;
-}
 
 // Power, the TAPE/RADIO switch, and the deck: tape in or ejected, which side faces out, each side's place, and the
 // transport (stop, play, ff, rew). Like the real deck: the tape keys only work in tape mode; play and winding need
@@ -85,46 +63,49 @@ export function boombox() {
   };
 }
 
-// The player: turns the deck into sound. Everything is scheduled on the audio clock up to AHEAD seconds ahead, so
-// the page can feed it from a plain timer (not screen redraws) and still never be late; a key that really changes
-// the transport cancels what was scheduled and schedules again from that instant (the opening notes included); a key
-// that changes nothing (PLAY while playing) leaves the sound alone. `out` is the page's audio:
-//   now() audio-clock seconds · note(n, at) a note starting at an audio time · bed(kind, at) the background sound
-//   from that time on: "hiss" between songs, "wind" while winding, "none" · cancel() stop everything scheduled
-export const AHEAD = 2.5;
+// The player: turns the deck into sound. Each side of the tape is recorded once (the page renders each song's loop
+// offline, like dubbing a cassette), so playing is starting that side at the tape's position: the page schedules
+// the rest of the side (each song's loop for its length, the hiss in the gaps) on the audio clock in one go, with
+// nothing left to feed later and the side's end as the end of the sound. A key that really changes the transport
+// (motion, side, tape in/out) cancels what is sounding and starts again from that instant, using the same time and
+// position the deck used; a key that changes nothing (PLAY while playing) leaves the sound alone. PLAY on a side not recorded yet holds the
+// tape where it is (it doesn't run silently) until the recording is ready, then plays from exactly there; any other
+// key meanwhile drops the hold. `out` is the page's audio:
+//   now() audio-clock seconds · ready(side) is that side recorded yet · record(side) start recording it (the page
+//   calls player.recorded() when done) · play(side, at, from) start the side at audio time `at` from tape position
+//   `from` · wind(at, until) the whir of winding between two audio times · cancel() stop everything sounding
 export function player(deck, out) {
-  let cursor = null;  // the tape position notes and beds are scheduled up to, while playing
-  function pump() {
-    const t = out.now(), st = deck.at(t);
-    if (st.motion !== "play") { cursor = null; return; }
-    const here = st.pos[st.side], end = sideLength(st.side), ahead = Math.min(end, here + AHEAD), from = Math.max(cursor ?? here, here);
-    if (!(ahead > from)) return;
-    const when = pos => t + (pos - here);
-    for (const n of notesOnTape(st.side, from, ahead)) out.note(n, when(n.pos));
-    // the hiss in each gap between songs, and silence once the side runs out
-    let start = 0;
-    for (const song of TAPE[st.side]) {
-      const gapAt = start + song.length, gapEnd = gapAt + GAP;
-      if (gapAt >= from && gapAt < ahead) out.bed("hiss", when(gapAt));
-      if (gapEnd >= from && (gapEnd < ahead || (gapEnd === end && ahead === end))) out.bed("none", when(gapEnd));  // incl. the side's end
-      if (from > gapAt && from < gapEnd && cursor === null) out.bed("hiss", t);  // started in a gap
-      start = gapEnd;
+  let waiting = null;  // the side PLAY is held for while it's recorded
+  function start(t) {
+    const st = deck.at(t), side = st.side, pos = st.pos[side];
+    if (st.motion === "play") {
+      if (out.ready(side)) out.play(side, t, pos);
+      else { waiting = side; deck.press("stop", t); out.record(side); }
     }
-    cursor = ahead;
+    else if (st.motion === "ff") out.wind(t, t + (sideLength(side) - pos) / WIND);
+    else if (st.motion === "rew") out.wind(t, t + pos / WIND);
   }
   return {
-    pump,
+    get waiting() { return waiting; },
     press(key) {
+      if (key !== "play") waiting = null;  // any other key drops a held PLAY
       const t = out.now(), before = deck.at(t);
       deck.press(key, t);
       const after = deck.at(t);
       if (before.motion === after.motion && before.side === after.side && before.tapeIn === after.tapeIn) return;
-      out.cancel(); cursor = null;
-      if (after.motion === "ff" || after.motion === "rew") {  // the whir, from now until the tape reaches the end it's heading for
-        const left = after.motion === "ff" ? sideLength(after.side) - after.pos[after.side] : after.pos[after.side];
-        out.bed("wind", t); out.bed("none", t + left / WIND);
-      }
-      pump();
+      waiting = null;
+      out.cancel();
+      start(t);
+    },
+    // a side finished recording: if PLAY is held for it, play from where the tape is held
+    recorded() {
+      const t = out.now();
+      if (waiting === null || !out.ready(waiting)) return;
+      const side = waiting, st = deck.at(t);
+      waiting = null;
+      if (st.side !== side || !st.tapeIn) return;  // (keys that change these drop the hold anyway)
+      deck.press("play", t);  // needs power and tape mode, as ever; if they're gone, start() finds nothing playing
+      start(t);
     },
   };
 }
