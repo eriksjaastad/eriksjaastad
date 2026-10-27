@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flashback · Erik Sjaastad</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* The way into Flashback: an 8-bit top-down walk through a hedge maze to the cabin. Arrow keys, or a D-pad on phones. */
+:root {
+  --bg: #0e0d0b; --ink: #f3ebe4; --muted: #a39484; --neon: #ff6a00; --line: #3b322b;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; display: grid; place-items: center; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
+.chrome { position: fixed; z-index: 2; }
+#title { top: max(16px, env(safe-area-inset-top)); left: 18px; pointer-events: none; }
+#title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
+#home { top: max(14px, env(safe-area-inset-top)); right: 16px; font-size: 14px; color: var(--ink); text-decoration: none; background: rgba(14,13,11,.6); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
+#home:hover { border-color: var(--neon); color: var(--neon); }
+#hint { left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); font: 12px var(--mono); color: var(--muted); pointer-events: none; }
+/* the D-pad: only on touch screens, bottom left where a thumb rests; hold a direction to keep walking */
+#pad { display: none; left: 18px; bottom: max(22px, env(safe-area-inset-bottom)); width: 156px; height: 156px; touch-action: none; }
+#pad button { position: absolute; width: 52px; height: 52px; border: 2px solid #5b4a3a; background: #2a231c; color: var(--ink); font-size: 20px; border-radius: 8px; padding: 0; touch-action: none; -webkit-user-select: none; user-select: none; }
+#pad button.on { background: var(--neon); border-color: var(--neon); color: #1a0e05; }
+#pad [data-dir=up] { left: 52px; top: 0; } #pad [data-dir=down] { left: 52px; top: 104px; }
+#pad [data-dir=left] { left: 0; top: 52px; } #pad [data-dir=right] { left: 104px; top: 52px; }
+@media (hover: none) { #pad { display: block; } #hint .desk { display: none; } }
+@media (hover: hover) { #hint .touch { display: none; } }
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .8s; z-index: 3; }
+body.entering #fade { opacity: 1; }
+</style>
+<header id="title" class="chrome"><h1>Flashback</h1><p>find your way to the cabin</p></header>
+<a id="home" class="chrome" href="/">Home</a>
+<canvas id="screen" width="160" height="144" aria-label="A top-down 8-bit hedge maze leading to a cabin in the woods"></canvas>
+<div id="hint" class="chrome"><span class="desk">arrow keys to walk</span><span class="touch">hold the arrows to walk</span></div>
+<div id="pad" class="chrome" aria-label="Arrow buttons"><button data-dir="up" aria-label="Up">▲</button><button data-dir="left" aria-label="Left">◀</button><button data-dir="right" aria-label="Right">▶</button><button data-dir="down" aria-label="Down">▼</button></div>
+<div id="fade"></div>
+<script type="module">
+import { MAP, mover, find } from "./maze.js";
+
+const T = 8, screen = document.getElementById("screen"), ctx = screen.getContext("2d");
+// scale the 160x144 screen up by whole pixels so it stays crisp, as large as fits under the header
+function fit() {
+  const k = Math.max(1, Math.floor(Math.min((innerWidth - 16) / 160, (innerHeight - 150) / 144)));
+  screen.style.width = `${160 * k}px`; screen.style.height = `${144 * k}px`;
+}
+fit(); addEventListener("resize", fit);
+
+// ---------- the tiles: tiny pixel drawings, a few colours each, drawn once into the background ----------
+const px = (g, c, x, y, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+const TILES = {
+  "#": (g, x, y) => {  // hedge: dark green with leafy speckles and a shadowed bottom edge
+    px(g, "#2f6b2f", x, y, 8, 8);
+    for (const [a, b] of [[1, 1], [5, 2], [2, 4], [6, 5], [3, 6]]) px(g, "#4f9a3f", x + a, y + b);
+    for (const [a, b] of [[4, 0], [0, 3], [7, 3], [1, 6]]) px(g, "#1f4a22", x + a, y + b);
+    px(g, "#1a3a1c", x, y + 7, 8, 1);
+  },
+  ".": (g, x, y) => { px(g, "#c9b07a", x, y, 8, 8); px(g, "#b39563", x + 2, y + 3); px(g, "#b39563", x + 6, y + 6); },
+  "S": (g, x, y) => TILES["."](g, x, y),
+  ",": (g, x, y) => { px(g, "#6aa84f", x, y, 8, 8); px(g, "#8cc56b", x + 1, y + 2); px(g, "#4f8a3a", x + 5, y + 5); px(g, "#8cc56b", x + 6, y + 1); },
+  "f": (g, x, y) => { TILES[","](g, x, y); px(g, "#ff7fb0", x + 3, y + 3); px(g, "#ffe14d", x + 5, y + 5); px(g, "#ffffff", x + 2, y + 6); },
+  "T": (g, x, y) => {  // the woods: overlapping round canopies
+    px(g, "#173d24", x, y, 8, 8);
+    px(g, "#245c34", x + 1, y + 1, 6, 5); px(g, "#245c34", x + 2, y, 4, 7);
+    px(g, "#347a45", x + 2, y + 1, 2, 2); px(g, "#0f2a18", x + 5, y + 5, 2, 2);
+  },
+  "R": (g, x, y) => { px(g, "#8c3a2c", x, y, 8, 8); px(g, "#6e2a20", x, y + 3, 8, 1); px(g, "#6e2a20", x, y + 7, 8, 1); px(g, "#a8503c", x + 2, y + 1, 3, 1); },
+  "C": (g, x, y) => { px(g, "#7a4a2a", x, y, 8, 8); for (const r of [1, 4, 7]) px(g, "#4f2e18", x, y + r, 8, 1); },
+  "W": (g, x, y) => { TILES.C(g, x, y); px(g, "#ffd36b", x + 2, y + 2, 4, 4); px(g, "#4f2e18", x + 4, y + 2, 1, 4); },
+  "D": (g, x, y) => { TILES.C(g, x, y); px(g, "#3a2210", x + 1, y + 1, 6, 7); px(g, "#ffd36b", x + 5, y + 4); },
+};
+const bg = document.createElement("canvas"); bg.width = 160; bg.height = 144;
+const bgx = bg.getContext("2d");
+MAP.forEach((row, y) => [...row].forEach((ch, x) => TILES[ch](bgx, x * T, y * T)));
+
+// the walker: the site's little orange character, seen from above, with a two-frame step
+function hero(g, x, y, facing, frame) {
+  px(g, "rgba(0,0,0,.35)", x + 1, y + 7, 6, 1);                       // shadow
+  px(g, "#ff8a3d", x + 1, y + 1, 6, 6); px(g, "#ff6a00", x + 1, y + 5, 6, 2);
+  px(g, "#ffd36b", x + 4, y, 1, 1);                                     // antenna
+  const eyes = { down: [[2, 3], [5, 3]], up: [], left: [[1, 3], [3, 3]], right: [[4, 3], [6, 3]] }[facing];
+  for (const [a, b] of eyes) px(g, "#1a1210", x + a, y + b);
+  if (frame) { px(g, "#7a3410", x + 1, y + 7); } else { px(g, "#7a3410", x + 6, y + 7); }  // feet
+}
+
+// ---------- input: arrow keys, or the D-pad's buttons held down ----------
+const me = mover(find("S"));
+const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+addEventListener("keydown", e => { if (KEYS[e.key]) { e.preventDefault(); me.press(KEYS[e.key]); } });
+addEventListener("keyup", e => { if (KEYS[e.key]) me.release(KEYS[e.key]); });
+addEventListener("blur", () => me.releaseAll());
+for (const b of document.querySelectorAll("#pad button")) {
+  const dir = b.dataset.dir, up = () => { me.release(dir); b.classList.remove("on"); };
+  b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture(e.pointerId); me.press(dir); b.classList.add("on"); });
+  for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(t, up);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+}
+
+// ---------- the loop: draw the world, then the walker part-way through its step; the door leads inside ----------
+let last = null, entering = false;
+function tick(now) {
+  const p = me.frame(last === null ? 0 : (now - last) / 1000); last = now;
+  ctx.drawImage(bg, 0, 0);
+  hero(ctx, Math.round(p.x * T), Math.round(p.y * T), p.facing, p.moving && Math.floor(now / 120) % 2);
+  if (p.inside && !entering) {
+    entering = true; document.body.classList.add("entering");
+    setTimeout(() => { location.href = "/flashback/"; }, 850);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+// coming Back from the cabin, the browser may restore this page as it was: black, standing on the door. Start over.
+addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
+</script>
+</html>
