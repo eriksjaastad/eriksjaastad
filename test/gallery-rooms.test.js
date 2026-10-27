@@ -1,45 +1,27 @@
 // The gallery's room styles: node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import fc from "fast-check";
-import { standable, walker, heading } from "../public/gallery/walk.js";
-import { ROOMS, COLUMNS, COLUMN_R, styleFrom } from "../public/gallery/rooms.js";
-
-// the standing spots and look points the page gives its pieces (index.html piece(...) calls)
-const SPOTS = [
-  ...[2, -2, -6].map(z => [{ x: -3.4, z }, { x: -6, y: 2.05, z }]),
-  ...[2, -2, -6].map(z => [{ x: 2.4, z: z + 0.6 }, { x: 4.7, y: 1.4, z }]),
-  [{ x: 0, z: -6.7 }, { x: 0, y: 1.1, z: -8.4 }], [{ x: -2.6, z: -6.6 }, { x: -4.7, y: 0.5, z: -8.9 }],
-];
-const START = { x: 0, z: 5, yaw: 0, pitch: -0.03 };
-
-test("rooms: in every style, from the entrance every piece's spot is reached, facing the piece", () => {
-  for (const [style, { floor }] of Object.entries(ROOMS)) {
-    for (const [stand, look] of SPOTS) {
-      const w = walker(START, floor);
-      w.goTo(stand, look);
-      let p; for (let t = 0; t <= 600; t++) p = w.frame(t * 16);
-      const why = `${style} ${JSON.stringify(stand)} ended at ${p.x.toFixed(2)},${p.z.toFixed(2)}`;
-      assert.ok(!p.flying && Math.hypot(p.x - stand.x, p.z - stand.z) < 1e-6, why);
-      const d = heading(p.yaw, 1, 0);
-      assert.ok(d.dx * (look.x - p.x) + d.dz * (look.z - p.z) > 0.99 * Math.hypot(look.x - p.x, look.z - p.z), why);
-    }
-  }
-});
-
-test("rooms: in the Egyptian hall no walking, sliding or pinching takes you into a column", () => {
-  const ev = fc.tuple(fc.integer({ min: 0, max: 3 }), fc.integer({ min: 1, max: 2 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }));
-  fc.assert(fc.property(fc.array(ev, { maxLength: 40 }), events => {
-    const w = walker(START, ROOMS.egypt.floor);
-    for (const [k, id, a, b] of events) {
-      [() => w.pointerDown(id, a, b, a > 0), () => w.pointerMove(id, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(id, a, b)][k]();
-      const p = w.frame(0);
-      assert.ok(standable(p.x, p.z, ROOMS.egypt.floor) && COLUMNS.every(([x, z]) => Math.hypot(p.x - x, p.z - z) > COLUMN_R + 0.4), JSON.stringify(p));
-    }
-  }), { numRuns: 500 });
-});
+import { styleFrom, FOOTPRINT, hypostyleColumns, NAVE, AISLE, PANTHEON } from "../public/gallery/rooms.js";
 
 test("rooms: ?room= picks a style by name; anything else is the classic room", () => {
-  assert.equal(styleFrom("?room=egypt"), "egypt");
-  for (const s of ["", "?room=", "?room=EGYPT", "?room=toString", "?room=__proto__", "?other=egypt", "?room=nope"]) assert.equal(styleFrom(s), "classic", s);
+  assert.equal(styleFrom("?room=hypostyle"), "hypostyle"); assert.equal(styleFrom("?room=pantheon"), "pantheon");
+  for (const s of ["", "?room=", "?room=PANTHEON", "?room=toString", "?room=__proto__", "?other=pantheon", "?room=egypt"]) assert.equal(styleFrom(s), "classic", s);
+});
+
+// the gap between a circle and the footprint rectangle (negative: they overlap)
+const gap = ([x, z], r) => Math.hypot(Math.max(FOOTPRINT.minX - x, 0, x - FOOTPRINT.maxX), Math.max(FOOTPRINT.minZ - z, 0, z - FOOTPRINT.maxZ)) - r;
+
+test("hypostyle: every column stands clear of the gallery by at least a metre, about 134 of them, never two in one place", () => {
+  const { nave, aisles } = hypostyleColumns();
+  for (const c of nave) assert.ok(gap(c, NAVE.r) >= 1, `nave ${c}`);
+  for (const c of aisles) assert.ok(gap(c, AISLE.r) >= 1, `aisle ${c}`);
+  const all = [...nave, ...aisles];
+  assert.equal(nave.length, 12); assert.ok(all.length >= 130 && all.length <= 140, `${all.length}`);
+  assert.equal(new Set(all.map(String)).size, all.length);
+});
+
+test("pantheon: the whole gallery fits inside the rotunda with room to spare", () => {
+  for (const x of [FOOTPRINT.minX, FOOTPRINT.maxX]) for (const z of [FOOTPRINT.minZ, FOOTPRINT.maxZ]) {
+    assert.ok(Math.hypot(x - PANTHEON.x, z - PANTHEON.z) <= PANTHEON.r - 8, `${x},${z}`);
+  }
 });
