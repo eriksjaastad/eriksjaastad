@@ -72,20 +72,24 @@ export function walker(start, room = ROOM) {
   // the gesture so far is a tap while one primary pointer is down and has moved at most 6 px in total.
   // Each new gesture starts fresh, so a press lost to blur or cancel can't spoil the next click.
   let tap = null;
-  // two-finger motion adds up here and is walked once per frame, so the pair's events cancel each other
-  // before collision, in either order, instead of each finger's share being clipped by a wall on its own
+  // a run of two-finger moves adds up here and is walked in one go, so the two fingers' shares cancel before
+  // collision (in either order) instead of a wall clipping one share. Every input that moves you (a one-finger
+  // move, the wheel, a walk to a piece, a frame) walks the run first, so it lands in the order it happened;
+  // a pinch still takes over from a walk to a piece the moment it moves.
   const pinch = { forward: 0, right: 0 };
+  const settle = () => { const { forward, right } = pinch; pinch.forward = pinch.right = 0; move(forward, right); };
   const pointerMove = (id, x, y) => {
     const p = pointers.get(id);
     if (!p || !Number.isFinite(x) || !Number.isFinite(y)) return;  // a bad sample neither moves you nor resets travel
     const dx = x - p.x, dy = y - p.y;
     const o = pointers.size === 2 ? [...pointers.values()].find(q => q !== p) : null;  // the other finger of a pinch
+    if (!o) settle();
     const spread = o ? Math.hypot(x - o.x, y - o.y) - Math.hypot(p.x - o.x, p.y - o.y) : 0;
     p.x = x; p.y = y;
     if (tap && (tap.travel += Math.hypot(dx, dy)) > 6) tap = null;
     // two fingers: spreading them walks forward, pinching walks back, and moving both slides like a
     // sliding drag (the pair's midpoint moves half as far as one finger). Three or more do nothing.
-    if (o) { pinch.forward += (spread + dy / 2) * 0.01; pinch.right -= dx / 2 * 0.01; }
+    if (o) { pinch.forward += (spread + dy / 2) * 0.01; pinch.right -= dx / 2 * 0.01; if (dx || dy) flight = null; }
     else if (pointers.size === 1) { if (p.slide) move(dy * 0.01, -dx * 0.01); else turn(dx, dy); }
   };
   return {
@@ -107,7 +111,7 @@ export function walker(start, room = ROOM) {
       return wasTap;
     },
     pointerCancel(id) { pointers.delete(id); },
-    wheel(deltaY, deltaMode, pageHeight) { move(wheelMeters(deltaY, deltaMode, pageHeight), 0); },
+    wheel(deltaY, deltaMode, pageHeight) { settle(); move(wheelMeters(deltaY, deltaMode, pageHeight), 0); },
     // a modifier means a shortcut (Cmd+W ...), and macOS drops keyups while Cmd is held: stop everything
     // a movement key stops a walk to a piece at once, even if released before the next frame
     keyDown({ key, metaKey, ctrlKey, altKey }) {
@@ -120,18 +124,19 @@ export function walker(start, room = ROOM) {
     blur() { keys.clear(); pointers.clear(); },
     // walk to stand at {x, z} looking at {x, y, z}; calling it again (same piece or another) starts afresh
     goTo(stand, look) {
+      settle();
       const yaw = Math.atan2(stand.x - look.x, stand.z - look.z);
       const pitch = Math.min(1.45, Math.max(-1.45, Math.atan2(look.y - EYE, Math.hypot(look.x - stand.x, look.z - stand.z))));
       flight = { x: stand.x, z: stand.z, yaw: me.yaw + Math.atan2(Math.sin(yaw - me.yaw), Math.cos(yaw - me.yaw)), pitch };
     },
     // WASD / arrows walk 2.6 m/s, Q/E turn; dt capped at 50 ms so a frame after a pause can't teleport you
     frame(now) {
+      settle();
       const dt = last === null ? 0 : Math.min(0.05, Math.max(0, now - last) / 1000); last = now;
       const f = pressed("w", "arrowup") - pressed("s", "arrowdown"), r = pressed("d", "arrowright") - pressed("a", "arrowleft");
       if (f || r) move(f * 2.6 * dt, r * 2.6 * dt);
       const q = keys.has("q") - keys.has("e");
       if (q) turn(q * 300 * dt, 0);
-      move(pinch.forward, pinch.right); pinch.forward = pinch.right = 0;
       if (flight) fly(dt);
       return { x: me.x, y: EYE, z: me.z, pitch: me.pitch, yaw: me.yaw, roll: 0, flying: !!flight };
     },

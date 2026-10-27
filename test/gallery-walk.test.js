@@ -115,6 +115,45 @@ test("pinch: two fingers come out the same in either event order, beside a wall 
   }
 });
 
+test("pinch: a pinch lands before whatever moves you next, with or without a frame in between", () => {
+  const near = (a, b) => ["x", "z", "yaw"].every(k => Math.abs(a[k] - b[k]) < 1e-9);
+  // each case: where you stand, a two-finger gesture (fingers start at x 0 and 100), then an input whose result
+  // depends on order: a turn (one finger left), the wheel beside a plinth, a tap's walk to a piece
+  const cases = {
+    look: [{ x: 0, z: 0 }, [[1, -30], [2, 130]], w => { w.pointerUp(2, 130, 0); w.pointerMove(1, 70, 0); }],
+    wheel: [{ x: 3.85, z: 2 }, [[1, -60], [2, 40]], w => w.wheel(-83, 0, 800)],
+    // lifts with bad samples (NaN) walk nothing themselves, so the tap's walk to a piece is the next thing that moves you
+    tap: [{ x: 0, z: 0 }, [[1, -30], [2, 130]], w => {
+      w.pointerUp(1, NaN, NaN); w.pointerUp(2, NaN, NaN); w.pointerDown(3, 5, 5, false, true);
+      assert.equal(w.pointerUp(3, NaN, NaN), true); w.goTo(...SPOTS[0]);
+    }],
+  };
+  for (const [name, [spot, gesture, next]] of Object.entries(cases)) {
+    const [a, b] = [false, true].map(frameBetween => {
+      const w = walker({ ...spot, yaw: 0, pitch: 0 });
+      w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false);
+      for (const [id, x] of gesture) w.pointerMove(id, x, 0);
+      if (frameBetween) w.frame(0);
+      next(w);
+      return w.frame(0);
+    });
+    assert.ok(near(a, b) && a.flying === b.flying, `${name}: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+  }
+});
+
+test("pinch: two fingers moving take over from a walk to a piece even if they end where they began; a tap after a pinch still walks", () => {
+  for (const axis of [0, 1]) {
+    const w = at(); w.goTo(...SPOTS[0]);
+    w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false);
+    w.pointerMove(2, 100 + 30 * (1 - axis), 30 * axis); w.pointerMove(2, 100, 0);
+    assert.equal(w.frame(0).flying, false, `out and back on axis ${axis}`);
+  }
+  const w = at();
+  w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false); w.pointerMove(2, 160, 0);
+  w.pointerUp(1, 0, 0); w.pointerUp(2, 160, 0); w.goTo(...SPOTS[0]);
+  assert.equal(w.frame(0).flying, true, "the pinch before the tap does not cancel the walk the tap started");
+});
+
 test("walker: each control moves the view the way it says, and a released key stops", () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   let w = at(); w.wheel(-48, 0, 800); assert.ok(near(w.frame(0).z, -48 * 0.006));         // scroll up walks forward
