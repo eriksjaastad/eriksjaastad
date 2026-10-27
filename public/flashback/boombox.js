@@ -25,7 +25,10 @@ export function notesOnTape(side, from, to) {
     const lo = Math.max(from, start), hi = Math.min(to, start + t.length);
     if (hi > lo) {
       if (!tunes.has(t.seed)) tunes.set(t.seed, song(t.seed));
-      for (const n of notesBetween(tunes.get(t.seed), lo - start, hi - start)) out.push({ ...n, pos: start + n.t });
+      for (const n of notesBetween(tunes.get(t.seed), lo - start, hi - start)) {
+        const pos = start + n.t;
+        out.push({ ...n, pos, dur: Math.min(n.dur, start + t.length - pos) });  // no note rings past its song's end
+      }
     }
     start += t.length + GAP;
   }
@@ -78,6 +81,50 @@ export function boombox() {
         at -= GAP;
       }
       return { sound: "none" };
+    },
+  };
+}
+
+// The player: turns the deck into sound. Everything is scheduled on the audio clock up to AHEAD seconds ahead, so
+// the page can feed it from a plain timer (not screen redraws) and still never be late; a key that really changes
+// the transport cancels what was scheduled and schedules again from that instant (the opening notes included); a key
+// that changes nothing (PLAY while playing) leaves the sound alone. `out` is the page's audio:
+//   now() audio-clock seconds · note(n, at) a note starting at an audio time · bed(kind, at) the background sound
+//   from that time on: "hiss" between songs, "wind" while winding, "none" · cancel() stop everything scheduled
+export const AHEAD = 2.5;
+export function player(deck, out) {
+  let cursor = null;  // the tape position notes and beds are scheduled up to, while playing
+  function pump() {
+    const t = out.now(), st = deck.at(t);
+    if (st.motion !== "play") { cursor = null; return; }
+    const here = st.pos[st.side], end = sideLength(st.side), ahead = Math.min(end, here + AHEAD), from = Math.max(cursor ?? here, here);
+    if (!(ahead > from)) return;
+    const when = pos => t + (pos - here);
+    for (const n of notesOnTape(st.side, from, ahead)) out.note(n, when(n.pos));
+    // the hiss in each gap between songs, and silence once the side runs out
+    let start = 0;
+    for (const song of TAPE[st.side]) {
+      const gapAt = start + song.length, gapEnd = gapAt + GAP;
+      if (gapAt >= from && gapAt < ahead) out.bed("hiss", when(gapAt));
+      if (gapEnd >= from && (gapEnd < ahead || (gapEnd === end && ahead === end))) out.bed("none", when(gapEnd));  // incl. the side's end
+      if (from > gapAt && from < gapEnd && cursor === null) out.bed("hiss", t);  // started in a gap
+      start = gapEnd;
+    }
+    cursor = ahead;
+  }
+  return {
+    pump,
+    press(key) {
+      const t = out.now(), before = deck.at(t);
+      deck.press(key, t);
+      const after = deck.at(t);
+      if (before.motion === after.motion && before.side === after.side && before.tapeIn === after.tapeIn) return;
+      out.cancel(); cursor = null;
+      if (after.motion === "ff" || after.motion === "rew") {  // the whir, from now until the tape reaches the end it's heading for
+        const left = after.motion === "ff" ? sideLength(after.side) - after.pos[after.side] : after.pos[after.side];
+        out.bed("wind", t); out.bed("none", t + left / WIND);
+      }
+      pump();
     },
   };
 }

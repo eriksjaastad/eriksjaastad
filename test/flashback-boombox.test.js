@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { boombox, TAPE, GAP, WIND, sideLength, notesOnTape } from "../public/flashback/boombox.js";
+import { boombox, TAPE, GAP, WIND, sideLength, notesOnTape, player, AHEAD } from "../public/flashback/boombox.js";
 import { song, notesBetween } from "../public/flashback/music.js";
 
 test("boombox: nothing plays until it's on; play runs the tape in step with the clock from the first song's start", () => {
@@ -113,4 +113,66 @@ test("music: scheduling a loop in any run of back-to-back windows hands out ever
     assert.deepEqual(got.map(n => n.t), notesBetween(s, 0, t).map(n => n.t));
   }), { numRuns: 200 });
   assert.deepEqual(notesBetween(song(1), 5, 5), []); assert.deepEqual(notesBetween(song(1), NaN, 2), []);
+});
+
+// a recording stand-in for the page's audio: what was scheduled, when, and when it was all cancelled
+function rig() {
+  let t = 0;
+  const log = { notes: [], beds: [], cancels: [] };
+  const out = { now: () => t, note: (n, at) => log.notes.push({ pos: n.pos, at, dur: n.dur, scheduledAt: t }), bed: (kind, at) => log.beds.push({ kind, at, scheduledAt: t }), cancel: () => log.cancels.push(t) };
+  const deck = boombox(), p = player(deck, out);
+  return { deck, p, log, go: dt => { t += dt; }, get t() { return t; } };
+}
+
+test("player: PLAY schedules at once from the very first note, even before the next timer tick", () => {
+  const r = rig(); r.p.press("power"); r.go(0.5); r.p.press("play");
+  assert.ok(r.log.notes.length > 0 && r.log.notes[0].pos === 0 && r.log.notes[0].at === 0.5);
+  r.go(0.016); r.p.pump(); r.go(30); r.p.press("rew"); r.go(1); r.p.press("play");
+  const resumed = r.log.notes.filter(n => n.scheduledAt === r.t), here = r.deck.at(r.t).pos.A;
+  assert.ok(resumed.length > 0 && resumed.every(n => n.at >= r.t && Math.abs(n.at - r.t - (n.pos - here)) < 1e-9), "a resume after rewinding is scheduled at the press, from where the tape is");
+  assert.deepEqual(resumed.map(n => n.pos).slice(0, 3), notesOnTape("A", here, here + 1).map(n => n.pos).slice(0, 3), "starting with the next note on the tape");
+});
+
+test("player: fed by a timer that stalls 0.4 s or 2 s, every note is scheduled exactly once and never for a moment already past", () => {
+  for (const gap of [0.1, 0.4, 2]) {
+    const r = rig(); r.p.press("power"); r.p.press("play");
+    while (r.t < 150) { r.go(gap); r.p.pump(); }
+    const want = notesOnTape("A", 0, Math.min(sideLength("A"), 150 + AHEAD));
+    const got = r.log.notes;
+    assert.deepEqual(got.map(n => n.pos), want.map(n => n.pos), `gap ${gap}: exactly once`);
+    assert.ok(got.every(n => n.at >= n.scheduledAt && Math.abs(n.at - n.pos) < 1e-9), `gap ${gap}: on time, never in the past`);
+  }
+});
+
+test("player: notes end with their song, the hiss fills each gap exactly, and the side ends in silence", () => {
+  const r = rig(); r.p.press("power"); r.p.press("play");
+  while (r.t < sideLength("A") + 5) { r.go(0.4); r.p.pump(); }
+  let start = 0;
+  for (const song of TAPE.A) {
+    const end = start + song.length;
+    assert.ok(r.log.notes.filter(n => n.pos < end && n.pos >= start).every(n => n.at + n.dur <= end + 1e-9), `${song.title}: nothing rings past its end`);
+    assert.ok(r.log.beds.some(b => b.kind === "hiss" && Math.abs(b.at - end) < 1e-9) && r.log.beds.some(b => b.kind === "none" && Math.abs(b.at - (end + GAP)) < 1e-9), `${song.title}: hiss for exactly the gap`);
+    start = end + GAP;
+  }
+  assert.equal(r.deck.at(r.t).motion, "stop");
+});
+
+test("player: winding whirs from the press until the tape reaches its end, exactly", () => {
+  const r = rig(); r.p.press("power"); r.p.press("play"); r.go(10); r.p.press("ff");
+  const whir = r.log.beds.filter(b => b.scheduledAt === 10);
+  assert.deepEqual(whir.map(b => b.kind), ["wind", "none"]);
+  assert.ok(Math.abs(whir[1].at - (10 + (sideLength("A") - 10) / WIND)) < 1e-9);
+  r.go(1); r.p.press("rew");
+  const back = r.log.beds.filter(b => b.scheduledAt === 11);
+  assert.ok(Math.abs(back[1].at - (11 + (10 + WIND) / WIND)) < 1e-9, "rewinding stops whirring at the start of the side");
+});
+
+test("player: a key that changes nothing keeps the sound; stop, winding, eject, radio and power off cancel it", () => {
+  const r = rig(); r.p.press("power"); r.p.press("play"); r.go(1);
+  for (const k of ["play", "tape", "flip", "nonsense"]) { r.p.press(k); }
+  assert.equal(r.log.cancels.length, 1, "only PLAY itself cancelled (the empty schedule before it)");
+  for (const k of ["stop", "ff", "rew", "eject", "radio", "power"]) {
+    const x = rig(); x.p.press("power"); x.p.press("play"); x.go(1); const before = x.log.cancels.length; x.p.press(k);
+    assert.equal(x.log.cancels.length, before + 1, k);
+  }
 });

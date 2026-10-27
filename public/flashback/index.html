@@ -153,7 +153,7 @@ import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
-import { boombox, notesOnTape, sideLength } from "./boombox.js";
+import { boombox, player } from "./boombox.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -599,7 +599,7 @@ let dialLast = null;
 
 // ---------- the boombox: boombox.js runs the deck, music.js writes the songs, this plays them on the audio clock ----------
 const bbEl = document.getElementById("boombox"), deck = boombox(), bbVoices = [];
-let bbOut = null, analyser = null, noise = null, cursor = null, bed = null;  // cursor: tape position scheduled up to; bed: the hiss/whir loop
+let bbOut = null, analyser = null, noise = null, beds = [];  // beds: the scheduled hiss/whir loops
 function bbAudio() {  // the boombox's own output: everything through one gain and an analyser for the VU meters
   if (bbOut) return bbOut;
   const a = sound(); bbOut = a.createGain(); bbOut.gain.value = 0.5; analyser = a.createAnalyser(); analyser.fftSize = 512;
@@ -621,28 +621,20 @@ function voice(n, at) {  // one note of a stand-in song
   }
   src.connect(g); src.start(at); src.stop(at + n.dur + 0.02); bbVoices.push(src);
 }
-// stop every scheduled note (the transport changed, so they're no longer right) and forget where scheduling was
-function hush() { for (const v of bbVoices.splice(0)) { try { v.stop(); } catch { /* already ended */ } } cursor = null; }
-function setBed(kind) {  // the tape's hiss between songs, or the whir of winding, as one looping noise
-  if (bed?.kind === kind) return;
-  if (bed) { try { bed.src.stop(); } catch { /* already ended */ } }
-  bed = null;
-  if (kind === "none") return;
-  const out = bbAudio(), a = sound(), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-  src.buffer = noise; src.loop = true; f.type = "bandpass"; f.frequency.value = kind === "wind" ? 900 : 3000; g.gain.value = kind === "wind" ? 0.06 : 0.03;
-  src.connect(f); f.connect(g); g.connect(out); src.start(); bed = { kind, src };
-}
-// each frame: the hiss or whir for what the deck is doing, and while it plays, the notes on the tape from where
-// scheduling got to up to a quarter second ahead, each placed on the audio clock by its position on the tape
-function playDeck(t) {
-  const st = deck.at(t), np = deck.nowPlaying(t);
-  setBed(np.sound === "hiss" || np.sound === "wind" ? np.sound : "none");
-  if (st.motion !== "play") { cursor = null; return; }
-  const here = st.pos[st.side], ahead = Math.min(sideLength(st.side), here + 0.25);
-  cursor ??= here;
-  for (const n of notesOnTape(st.side, cursor, ahead)) voice(n, t + (n.pos - here));
-  cursor = Math.max(cursor, ahead);
-}
+// the player (boombox.js) decides what plays when; this is its audio: notes, the hiss/whir bed, and cancelling
+const tape = player(deck, {
+  now: () => sound().currentTime,
+  note: (n, at) => voice(n, at),
+  bed(kind, at) {  // from `at` on, the bed is `kind`: whatever bed was due stops then
+    for (const b of beds.splice(0)) { try { b.stop(at); } catch { /* already ended */ } }
+    if (kind === "none") return;
+    const a = sound(), out = bbAudio(), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = noise; src.loop = true; f.type = "bandpass"; f.frequency.value = kind === "wind" ? 900 : 3000; g.gain.value = kind === "wind" ? 0.06 : 0.03;
+    src.connect(f); f.connect(g); g.connect(out); src.start(at); beds.push(src); bbVoices.push(src);
+  },
+  cancel() { for (const v of bbVoices.splice(0)) { try { v.stop(); } catch { /* already ended */ } } beds = []; },
+});
+setInterval(() => { if (audio) tape.pump(); }, 100);  // a plain timer, not screen redraws: the player schedules 2.5 s ahead
 const vu = [...bbEl.querySelectorAll(".vu canvas")], level = new Float32Array(512);
 function drawVU(i, v) {
   const g = vu[i].getContext("2d"), w = vu[i].width, h = vu[i].height, a = -2.3 + v * 1.6;
@@ -672,15 +664,14 @@ function drawBoombox(t, dt) {
   needle = needle.map((n, i) => n + (target * (i ? 0.95 : 1) - n) * Math.min(1, dt * 8));
   needle.forEach((v, i) => drawVU(i, v));
 }
-// a key changes the transport at this moment on the audio clock; scheduled notes are dropped and rescheduled from there
-for (const b of bbEl.querySelectorAll("[data-key]")) b.addEventListener("click", () => { bbAudio(); deck.press(b.dataset.key, sound().currentTime); hush(); });
+// a key goes to the player, which changes the transport at this moment on the audio clock and reschedules if it changed
+for (const b of bbEl.querySelectorAll("[data-key]")) b.addEventListener("click", () => { bbAudio(); tape.press(b.dataset.key); });
 bbEl.querySelector(".close").onclick = () => bbEl.close();
 bbEl.addEventListener("click", e => { if (e.target === bbEl) bbEl.close(); });  // the music keeps playing in the room
 let bbLast = null;
-(function run(now) {  // the deck runs on the audio clock whether or not you're looking at it; frames only redraw it
+(function run(now) {  // redraws only draw the front; the sound is the player's, on the audio clock
   const dt = bbLast === null ? 0 : (now - bbLast) / 1000; bbLast = now;
-  if (audio) { playDeck(audio.currentTime); if (bbEl.open) drawBoombox(audio.currentTime, Math.min(dt, 0.1)); }
-  else if (bbEl.open) drawBoombox(0, 0);
+  if (bbEl.open) drawBoombox(audio ? audio.currentTime : 0, Math.min(dt, 0.1));
   requestAnimationFrame(run);
 })(performance.now());
 
