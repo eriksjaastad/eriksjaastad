@@ -85,7 +85,8 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
   <svg viewBox="-110 -110 220 220" role="img" aria-label="Rotary dial: drag a finger hole clockwise to the metal stop and let go">
     <circle r="108" fill="#b3201c"/><circle r="92" fill="#f2eee4"/>
     <g id="numbers" font-family="monospace" font-weight="700" font-size="15" fill="#222" text-anchor="middle" dominant-baseline="central"></g>
-    <g id="wheel"><circle r="88" fill="rgba(179,32,28,.92)"/><circle r="34" fill="#f2eee4" stroke="#7a1410" stroke-width="2"/><g id="holes"></g></g>
+    <defs><mask id="cutouts"><circle r="88" fill="#fff"/><g id="cuts"></g></mask></defs>
+    <g id="wheel"><circle r="88" fill="#b3201c" mask="url(#cutouts)"/><circle r="34" fill="#f2eee4" stroke="#7a1410" stroke-width="2"/><g id="holes"></g></g>
     <path id="stop" d="M0 0 L12 -4 L12 4 Z" fill="#c9c9cf" stroke="#555" stroke-width="1"/>
   </svg>
   <div class="side">
@@ -105,7 +106,7 @@ import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
-import { dialer, DIGITS, restAngle, STOP, GAP, lineFor } from "./dial.js";
+import { dialer, DIGITS, restAngle, STOP, lineFor, RINGS, ANSWER, atTheTone } from "./dial.js";
 
 // Room: x -4..4, floor y 0, ceiling y 3, front door z +4, back wall z -4 (cabin.js has the floor plan).
 const W = 4, H = 3, FRONT = 4, BACK = -4;
@@ -462,30 +463,31 @@ let phoneDial = null, audio = null, call = null;
   for (const d of DIGITS) {
     const [x, y] = at(restAngle(d), 66);
     const t = document.createElementNS(ns, "text"); t.setAttribute("x", x); t.setAttribute("y", y); t.textContent = d; document.getElementById("numbers").append(t);
+    // the wheel's finger holes are real cutouts (an SVG mask) so the numbers show through; a clear ring marks each hole
+    const cut = document.createElementNS(ns, "circle"); cut.setAttribute("cx", x); cut.setAttribute("cy", y); cut.setAttribute("r", 15); cut.setAttribute("fill", "#000"); document.getElementById("cuts").append(cut);
     const h = document.createElementNS(ns, "circle"); h.setAttribute("cx", x); h.setAttribute("cy", y); h.setAttribute("r", 15); h.setAttribute("class", "hole"); h.dataset.digit = d;
-    h.setAttribute("fill-opacity", "0.15"); document.getElementById("holes").append(h);
+    h.setAttribute("fill-opacity", "0"); document.getElementById("holes").append(h);
   }
   const [sx, sy] = at(STOP, 92); document.getElementById("stop").setAttribute("transform", `translate(${sx} ${sy}) rotate(${STOP + 180})`);
 }
 const pointerAngle = e => { const r = svgEl.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
+// one finger owns a pull (dial.js ignores the others); its lift position counts; a cancelled pull dials nothing
 svgEl.addEventListener("pointerdown", e => {
   const d = e.target.dataset?.digit;
-  if (!d || call || !phoneDial.grab(d, pointerAngle(e))) return;
+  if (!d || call || !phoneDial?.grab(d, pointerAngle(e), e.pointerId)) return;
   svgEl.setPointerCapture(e.pointerId); e.preventDefault(); sound();  // browsers only start audio inside a gesture
 });
-svgEl.addEventListener("pointermove", e => phoneDial?.drag(pointerAngle(e)));
-for (const t of ["pointerup", "pointercancel"]) svgEl.addEventListener(t, () => {
-  if (!phoneDial) return;
-  const got = phoneDial.release();
-  if (got) numberEl.textContent = phoneDial.number.replace(/^(\d{3})(\d)/, "$1-$2");
+svgEl.addEventListener("pointermove", e => phoneDial?.drag(pointerAngle(e), e.pointerId));
+svgEl.addEventListener("pointerup", e => {
+  if (phoneDial?.release(pointerAngle(e), e.pointerId)) numberEl.textContent = phoneDial.number.replace(/^(\d{3})(\d)/, "$1-$2");
 });
+svgEl.addEventListener("pointercancel", e => phoneDial?.cancel(e.pointerId));
 // sounds: a click per pulse as the wheel comes home, the ring, the three rising "not in service" tones, and voices
 function sound() { audio ??= new AudioContext(); if (audio.state === "suspended") audio.resume(); return audio; }
 function tone(freqs, start, length, gain = 0.08) {
   const a = sound(), g = a.createGain(); g.gain.value = gain; g.connect(a.destination);
   for (const f of freqs) { const o = a.createOscillator(); o.frequency.value = f; o.connect(g); o.start(a.currentTime + start); o.stop(a.currentTime + start + length); call?.stops.push(o); }
 }
-const click = () => tone([1800], 0, 0.012, 0.05);
 const say = text => { lineEl.textContent = text; if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; speechSynthesis.speak(u); } };
 async function seattleTemp() {  // Seattle's temperature right now, from Open-Meteo (no key, no visitor location); null if it can't be had
   try {
@@ -495,27 +497,26 @@ async function seattleTemp() {  // Seattle's temperature right now, from Open-Me
     return Number.isFinite(t) ? Math.round(t) : null;
   } catch { return null; }
 }
-async function answer(line) {
+// a call follows dial.js's plan: two rings (2 s on, 4 s off), then the line answers once ringing has ended
+function answer(line) {
   call = { stops: [], timers: [] };
-  const me = call, later = (ms, fn) => me.timers.push(setTimeout(() => { if (call === me) fn(); }, ms));
+  const me = call, later = (s, fn) => me.timers.push(setTimeout(() => { if (call === me) fn(); }, s * 1000));
   if (line === "none") {
     lineEl.textContent = "...";
     [913.8, 1370.6, 1776.7].forEach((f, i) => tone([f], 0.3 + i * 0.33, 0.28));
-    later(1400, () => say("We're sorry. The number you have dialed is not in service. Please check the number and dial again."));
+    later(1.4, () => say("We're sorry. The number you have dialed is not in service. Please check the number and dial again."));
     return;
   }
-  lineEl.textContent = "ringing..."; tone([440, 480], 0.2, 1.6); later(3200, () => tone([440, 480], 0, 1.4));
-  if (line === "time") {
-    const temp = await seattleTemp();
-    later(3200, () => {
-      const seattle = { timeZone: "America/Los_Angeles" }, now = new Date();
-      const hour = Number(now.toLocaleString("en-US", { ...seattle, hour: "numeric", hourCycle: "h23" }));
-      say(`Good ${hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"}. At the tone, Seattle time will be ${now.toLocaleTimeString("en-US", { ...seattle, hour: "numeric", minute: "2-digit" })}. ${temp === null ? "The temperature isn't available right now." : `The temperature is ${temp} degrees.`}`);
-      later(5200, () => tone([1000], 0, 0.5, 0.06));
-    });
-  } else {
-    later(3200, () => say("School closure information. Due to snow and ice, all Seattle area schools are closed today. Stay home, have some cocoa, and don't forget your mittens. Again: all schools are closed today."));
-  }
+  lineEl.textContent = "ringing...";
+  for (const [at, len] of RINGS) later(at, () => tone([440, 480], 0, len));
+  let temp = null;
+  if (line === "time") seattleTemp().then(t => { temp = t; });  // ready long before the answer (3 s timeout); if not, it's unavailable
+  later(ANSWER, () => {
+    if (line !== "time") { say("School closure information. Due to snow and ice, all Seattle area schools are closed today. Stay home, have some cocoa, and don't forget your mittens. Again: all schools are closed today."); return; }
+    const { toneAt, words } = atTheTone(Date.now());  // the time named is the time the tone sounds
+    say(`At the tone, Seattle time will be ${words}. ${temp === null ? "The temperature isn't available right now." : `The temperature is ${temp} degrees.`}`);
+    later((toneAt - Date.now()) / 1000, () => tone([1000], 0, 0.5, 0.06));
+  });
 }
 function hangUp() {
   if (call) { for (const t of call.timers) clearTimeout(t); for (const o of call.stops) { try { o.stop(); } catch {} } }
@@ -529,11 +530,11 @@ dialEl.addEventListener("close", () => { hangUp(); phoneDial = null; });
 let dialLast = null;
 (function spin(now) {  // draw the wheel springing back, clicking once per hole it passes; dial a number once it's complete
   if (phoneDial) {
-    const before = phoneDial.rotation, after = phoneDial.frame(dialLast === null ? 0 : (now - dialLast) / 1000);
-    if (Math.floor(after / GAP) < Math.floor(before / GAP) && after < before) click();
-    wheel.setAttribute("transform", `rotate(${after})`);
+    const { rotation, pulses } = phoneDial.frame(dialLast === null ? 0 : (now - dialLast) / 1000);
+    for (let i = 0; i < pulses; i++) tone([1800], i * 0.025, 0.012, 0.05);  // one click per pulse, even if a slow frame passed several
+    wheel.setAttribute("transform", `rotate(${rotation})`);
     const line = lineFor(phoneDial.number);
-    if (line && !call && phoneDial.ready === false && after === 0) answer(line);
+    if (line && !call && rotation === 0) answer(line);
   }
   dialLast = now; requestAnimationFrame(spin);
 })(performance.now());

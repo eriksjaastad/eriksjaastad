@@ -19,38 +19,64 @@ export const restAngle = d => STOP - travel(d);
 export const DIRECTORY = { "5550142": "time", "5550177": "closures" };
 export const lineFor = number => Object.hasOwn(DIRECTORY, number) ? DIRECTORY[number] : number.length === LENGTH && /^[0-9]+$/.test(number) ? "none" : null;
 
+// Pulses: as the wheel springs back from a dialed digit it clicks once per pulse, one for 1 up to ten for 0. The
+// pulse points sit half a gap after the blank sector, a gap apart; a digit's return passes exactly its count of them.
+const PULSE_AT = k => FIRST / 2 + k * GAP;
+
 export function dialer() {
-  let rotation = 0, hold = null, last = 0;
+  let rotation = 0, hold = null, owner = null, last = 0, dialed = 0;  // dialed: the travel of the digit springing back
   const digits = [];
   const turn = a => ((a % 360) + 540) % 360 - 180;  // a change of pointer angle, the short way round
+  const drag = angle => { if (Number.isFinite(angle)) { rotation = Math.min(travel(hold), Math.max(0, rotation + turn(angle - last))); last = angle; } };
   return {
     get rotation() { return rotation; },
     get number() { return digits.join(""); },
     get ready() { return hold === null && rotation === 0 && digits.length < LENGTH; },
-    // put a finger in a hole, the pointer at `angle`; refused while the wheel is out or the number is complete
-    grab(digit, angle) {
+    // a finger (pointer `id`) goes into a hole at `angle`; refused while the wheel is out, the number is complete,
+    // or another finger already holds it
+    grab(digit, angle, id = 0) {
       if (!this.ready || !DIGITS.includes(digit) || !Number.isFinite(angle)) return false;
-      hold = digit; last = angle; return true;
+      hold = digit; owner = id; last = angle; return true;
     },
-    // the pointer moved to `angle`: the wheel follows, never backwards past rest or forwards past the stop
-    drag(angle) {
-      if (hold === null || !Number.isFinite(angle)) return;
-      rotation = Math.min(travel(hold), Math.max(0, rotation + turn(angle - last)));
-      last = angle;
-    },
-    // let go: returns the digit dialed, or null if the pull stopped short
-    release() {
-      if (hold === null) return null;
+    // the holding finger moved to `angle`: the wheel follows, never backwards past rest or forwards past the stop;
+    // any other finger is ignored
+    drag(angle, id = 0) { if (hold !== null && id === owner) drag(angle); },
+    // the holding finger lifts at `angle` (its last move counts): returns the digit dialed, or null if short
+    release(angle, id = 0) {
+      if (hold === null || id !== owner) return null;
+      drag(angle);
       const d = rotation >= travel(hold) - SLACK ? hold : null;
-      if (d) digits.push(d);
-      hold = null;
+      if (d) { digits.push(d); dialed = rotation; } else dialed = 0;
+      hold = null; owner = null;
       return d;
     },
-    // the wheel springs back while nobody holds it; returns the rotation to draw
+    // the finger's pull was interrupted (pointercancel): nothing dials, the wheel goes home without pulses
+    cancel(id = 0) { if (hold !== null && id === owner) { hold = null; owner = null; dialed = 0; } },
+    // the wheel springs back while nobody holds it; returns the rotation to draw and how many pulses it passed
     frame(dt) {
-      if (hold === null && rotation > 0) rotation = Math.max(0, rotation - RETURN * (Number.isFinite(dt) ? Math.max(0, dt) : 0));
-      return rotation;
+      let pulses = 0;
+      if (hold === null && rotation > 0) {
+        const before = rotation;
+        rotation = Math.max(0, rotation - RETURN * (Number.isFinite(dt) ? Math.max(0, dt) : 0));
+        if (dialed) for (let k = 0; PULSE_AT(k) < dialed; k++) if (PULSE_AT(k) <= before && PULSE_AT(k) > rotation) pulses++;
+        if (rotation === 0) dialed = 0;
+      }
+      return { rotation, pulses };
     },
-    hangUp() { digits.length = 0; hold = null; },
+    hangUp() { digits.length = 0; hold = null; owner = null; },
   };
+}
+
+// What a call sounds like, in seconds from the moment the last digit is home. Ringback is the US cadence, two
+// seconds on and four off; the line answers half a second after the second ring ends, never during one.
+export const RINGS = [[0, 2], [6, 2]];
+export const ANSWER = 8.5;
+// The time line names the time at its tone, a 10-second mark at least `lead` seconds after it starts speaking (the
+// sentence takes about that long), and sounds the tone exactly then. Returns { toneAt (ms), words } for Seattle.
+export function atTheTone(startMs, lead = 7) {
+  const toneAt = Math.ceil((startMs + lead * 1000) / 10000) * 10000;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })
+    .formatToParts(new Date(toneAt)).map(p => [p.type, p.value]));
+  const secs = Number(parts.second);
+  return { toneAt, words: `${parts.hour}:${parts.minute} ${parts.dayPeriod}${secs ? ` and ${secs} seconds` : " exactly"}` };
 }
