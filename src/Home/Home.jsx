@@ -53,6 +53,7 @@ export default function Home() {
           <a className="path" id="memoryLink" href="/memory/"><b>Inside my AI's memory →</b><small>fly through 2,600 things my agents remember</small></a>
           <a className="path" href="/case-studies/"><b>Case studies →</b><small>agents managing agents, SEO run like client work</small></a>
           <a className="path" href="https://github.com/eriksjaastad"><b>GitHub →</b><small>github.com/eriksjaastad</small></a>
+          <a className="path" href="/gallery/"><b>Art gallery →</b><small>walk a 3D room of my paintings and drawings</small></a>
         </nav>
         <div className="timeline" aria-label="Machines">
           <div><b>1983 · TI-99/4A</b>Dad's. TV for a monitor, phone in the coupler.</div>
