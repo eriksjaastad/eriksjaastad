@@ -122,6 +122,12 @@ export function walker(start, room = ROOM) {
     },
     keyUp(key) { keys.delete(key.toLowerCase()); },
     blur() { keys.clear(); pointers.clear(); },
+    // whether you are standing at {x, z} right now: within 0.3 m, not walking to a piece, no movement key held.
+    // A pinch still pending lands first, as it would before any other input.
+    standingAt(spot) {
+      settle();
+      return !flight && !MOVE_KEYS.some(k => keys.has(k)) && Math.hypot(me.x - spot.x, me.z - spot.z) < 0.3;
+    },
     // walk to stand at {x, z} looking at {x, y, z}; calling it again (same piece or another) starts afresh
     goTo(stand, look) {
       settle();

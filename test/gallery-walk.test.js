@@ -154,6 +154,22 @@ test("pinch: two fingers moving take over from a walk to a piece even if they en
   assert.equal(w.frame(0).flying, true, "the pinch before the tap does not cancel the walk the tap started");
 });
 
+test("standingAt: true wherever you stand still on the spot, however you got there; false the moment anything moves you", () => {
+  const spot = { x: 0, z: -0.2 }, far = { x: 0, y: 1, z: -9 };
+  let w = at(); w.wheel(-33, 0, 800); assert.equal(w.standingAt(spot), true, "scrolled there, no frame yet");
+  w.wheel(300, 0, 800); assert.equal(w.standingAt(spot), false, "scrolled away, no frame yet");
+  w = at(); w.goTo(spot, far); assert.equal(w.standingAt(spot), false, "a walk there has not started");
+  run(w, 100); assert.equal(w.standingAt(spot), true, "arrived by click");
+  w.goTo({ x: 2, z: 0 }, far); assert.equal(w.standingAt(spot), false, "a new walk just started");
+  w = at(); w.pointerDown(1, 0, 0, true); w.pointerMove(1, 0, 20); assert.equal(w.standingAt(spot), true, "slid there");
+  w.pointerMove(1, 0, -60); assert.equal(w.standingAt(spot), false, "slid away");
+  w = at(); w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false); w.pointerMove(1, -10, 0); w.pointerMove(2, 110, 0);
+  assert.equal(w.standingAt(spot), true, "pinched there, before a frame lands it");
+  w.pointerMove(1, -60, 0); w.pointerMove(2, 160, 0); assert.equal(w.standingAt(spot), false, "pinched past it");
+  w = at(); w.keyDown({ key: "w" }); assert.equal(w.standingAt({ x: 0, z: 0 }), false, "a movement key is held");
+  w.keyUp("w"); assert.equal(w.standingAt({ x: 0, z: 0 }), true, "and let go");
+});
+
 test("walker: each control moves the view the way it says, and a released key stops", () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   let w = at(); w.wheel(-48, 0, 800); assert.ok(near(w.frame(0).z, -48 * 0.006));         // scroll up walks forward

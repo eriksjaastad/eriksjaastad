@@ -44,12 +44,17 @@ test("hinges: a tap opens a drawer in 0.4 s, another shuts it, and the others do
 test("hinges: any taps and frame gaps keep every part between shut and open, turning round without jumps", () => {
   const ev = fc.oneof(fc.constantFrom(...OPENABLE).map(n => ({ n })), fc.oneof(fc.double({ min: -1, max: 2 }), fc.constant(NaN), fc.constant(Infinity)).map(dt => ({ dt })));
   fc.assert(fc.property(fc.array(ev, { maxLength: 40 }), events => {
-    const h = hinges();
+    const h = hinges(), want = Object.fromEntries(OPENABLE.map(n => [n, 0]));  // each tap flips what we expect
     let prev = h.step(0);
     for (const e of events) {
-      if ("n" in e) { h.toggle(e.n); continue; }
+      if ("n" in e) { h.toggle(e.n); want[e.n] = 1 - want[e.n]; continue; }
       const f = h.step(e.dt), most = Number.isFinite(e.dt) ? Math.max(0, e.dt) / 0.4 : 0;
-      for (const n of OPENABLE) assert.ok(f[n] >= 0 && f[n] <= 1 && Math.abs(f[n] - prev[n]) <= most + 1e-12, `${n} ${prev[n]} -> ${f[n]} in ${e.dt}`);
+      for (const n of OPENABLE) {
+        const why = `${n} ${prev[n]} -> ${f[n]} toward ${want[n]} in ${e.dt}`, gap = want[n] - prev[n];
+        assert.ok(f[n] >= 0 && f[n] <= 1, why);
+        // toward the latest tap's end, by the full step or all the way when that's closer
+        assert.ok(Math.abs(f[n] - (prev[n] + Math.sign(gap) * Math.min(Math.abs(gap), most))) < 1e-12, why);
+      }
       prev = f;
     }
   }), { numRuns: 500 });
