@@ -41,7 +41,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 .spread { display: flex; width: 100%; flex: 0 1 auto; min-height: 0; overflow: auto; background: #efe6d2; border-radius: 6px; box-shadow: 0 30px 80px rgba(0,0,0,.6); animation: turn .35s ease-out; }
 .scrap .spread { background: #fbd7e5; }
 @keyframes turn { from { opacity: 0; transform: translateX(var(--from, 0)); } }
-.page { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 26px; align-content: center; }
+.page { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 26px; align-content: start; }
 .page + .page { border-left: 2px solid rgba(0,0,0,.12); }
 .page button { all: unset; cursor: zoom-in; background: #fff; padding: 6px 6px 20px; box-shadow: 0 4px 12px rgba(0,0,0,.25); transform: rotate(var(--tilt)); }
 .page button:focus-visible { outline: 2px solid var(--neon); }
@@ -302,7 +302,7 @@ const bookEl = document.getElementById("book"), photoEl = document.getElementByI
 const perView = () => innerWidth < 700 ? 1 : 2;
 let reading = null;  // { title, pages, pg } while a book is open
 function openBook(name) {
-  reading = { ...BOOKS[name], pg: pager(BOOKS[name].pages.length, perView()) };
+  reading = { ...BOOKS[name], per: perView(), pg: pager(BOOKS[name].pages.length, perView()) };
   bookEl.classList.toggle("scrap", name === "scrapbook");
   document.getElementById("bookTitle").textContent = reading.title;
   bookEl.showModal(); render(0); bookEl.querySelector(".next").focus();
@@ -313,9 +313,9 @@ function render(dir) {
     const page = document.createElement("div"); page.className = "page";
     pages[i].forEach((photo, k) => {
       const b = document.createElement("button"); b.style.setProperty("--tilt", `${((i * 7 + k * 5) % 7 - 3) * 0.6}deg`);
-      b.setAttribute("aria-label", `open ${photo.note}`);
+      b.setAttribute("aria-label", `open ${photo.note}`); b.dataset.ref = `${i}-${k}`;
       const img = new Image(); img.src = photo.src; img.alt = photo.note; img.loading = "lazy"; b.append(img);
-      b.onclick = () => showPhoto(photo); page.append(b);
+      b.onclick = () => { photoEl.dataset.ref = b.dataset.ref; showPhoto(photo); }; page.append(b);
     });
     return page;
   }));
@@ -344,7 +344,16 @@ document.addEventListener("keydown", e => {
   if (!photoEl.open && e.key === "ArrowRight") turn(1);
   else if (!photoEl.open && e.key === "ArrowLeft") turn(-1);
 }, true);
-addEventListener("resize", () => { if (reading) { reading.pg.view(perView()); render(0); } });
+// re-lay the book only when it goes between one page and two (a phone turning), not on every resize
+addEventListener("resize", () => {
+  if (!reading || perView() === reading.per) return;
+  reading.per = perView(); reading.pg.view(reading.per); render(0);
+});
+// a photo opened before the book was re-laid has lost its button; give focus to the new one, or to Close if its page is no longer showing
+photoEl.addEventListener("close", () => {
+  if (spreadEl.contains(document.activeElement)) return;
+  (spreadEl.querySelector(`[data-ref="${photoEl.dataset.ref}"]`) ?? bookEl.querySelector(".close")).focus();
+});
 
 const open = hinges();
 let last = null;
