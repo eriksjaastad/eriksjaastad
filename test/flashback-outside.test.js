@@ -182,3 +182,18 @@ test("keys: a key tapped and let go before the next frame still takes its one st
   k.down(ev("ArrowRight", "ArrowRight")); k.up(ev("ArrowRight", "ArrowRight")); k.down(ev("Meta", "MetaLeft", { metaKey: true }));
   p = settle(3); assert.equal(p.x, 1, "Cmd right after: no step");
 });
+
+test("keys: a shortcut cancels only keyboard taps: a D-pad tap followed by Cmd, Ctrl or Alt in the same frame still steps", () => {
+  for (const [dir, [, , , start]] of Object.entries(PAIRS)) {
+    for (const mod of ["metaKey", "ctrlKey", "altKey"]) {
+      for (const liftFirst of [true, false]) {  // the finger lifted before the modifier, or after it
+        const { m, k, settle } = rig(start);
+        m.press(dir, "pointer1"); if (liftFirst) m.release(dir, "pointer1");
+        k.down(ev("Meta", "MetaLeft", { [mod]: true }));
+        if (!liftFirst) m.release(dir, "pointer1");
+        const p = settle(3);
+        assert.ok(!p.moving && Math.abs(p.x - start.x) + Math.abs(p.y - start.y) === 1, `${dir} ${mod} lift ${liftFirst ? "before" : "after"}: one step (${p.x},${p.y})`);
+      }
+    }
+  }
+});

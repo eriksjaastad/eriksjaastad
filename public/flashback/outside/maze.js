@@ -62,17 +62,20 @@ export const STEP = 0.14;  // seconds to walk one tile
 // through a step, and `inside` once you have stepped onto the door.
 export function mover(start = find("S"), map = MAP) {
   const held = [];  // [dir, source] in the order pressed
-  let at = { ...start }, to = null, t = 0, facing = "up", tapped = null;
+  let at = { ...start }, to = null, t = 0, facing = "up", tapped = null;  // tapped: [dir, source] not yet walked
   const release = (dir, source = "key") => { const i = held.findIndex(([d, s]) => d === dir && s === source); if (i >= 0) held.splice(i, 1); };
   return {
     press(dir, source = "key") {
       if (!DIRS[dir] || held.some(([d, s]) => d === dir && s === source)) return;
-      held.push([dir, source]); tapped = dir;
+      held.push([dir, source]); tapped = [dir, source];
     },
     release,
     releaseAll() { held.length = 0; tapped = null; },
-    // let go of every hold whose source passes `test`; with cancelTap, also of a tap not yet walked
-    drop(test, cancelTap = false) { for (let i = held.length - 1; i >= 0; i--) if (test(held[i][1])) held.splice(i, 1); if (cancelTap) tapped = null; },
+    // let go of every hold whose source passes `test`; with cancelTap, also of a tap not yet walked from such a source
+    drop(test, cancelTap = false) {
+      for (let i = held.length - 1; i >= 0; i--) if (test(held[i][1])) held.splice(i, 1);
+      if (cancelTap && tapped && test(tapped[1])) tapped = null;
+    },
     frame(dt) {
       t += Number.isFinite(dt) ? Math.min(0.1, Math.max(0, dt)) : 0;  // a frame after a pause can't skip the maze
       for (;;) {
@@ -80,7 +83,7 @@ export function mover(start = find("S"), map = MAP) {
           if (t < STEP) break;
           t -= STEP; at = to; to = null;
         }
-        const dir = held.at(-1)?.[0] ?? tapped; tapped = null;
+        const dir = held.at(-1)?.[0] ?? tapped?.[0]; tapped = null;
         if (!dir || map[at.y][at.x] === "D") { t = 0; break; }
         facing = dir;
         const [dx, dy] = DIRS[dir];
