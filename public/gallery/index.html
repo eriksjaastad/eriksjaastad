@@ -27,12 +27,12 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--d
 #caption { left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 12px); opacity: 0; transition: opacity .4s, transform .4s; pointer-events: none; text-align: center; width: min(92vw, 520px); }
 #caption b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.02em; } #caption span { font: 13px var(--mono); color: #ffc46b; }
 body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focused #hint { opacity: 0; }  /* both sit at the bottom */
-@media (hover: none) { #hint { display: none; } }
+#hint .touch { display: none; } @media (hover: none) { #hint .desk { display: none; } #hint .touch { display: inline; } }
 </style>
 <div id="stage"></div>
 <header id="title" class="chrome"><h1>The gallery</h1><p>the room is up · the art is on its way</p></header>
 <a id="home" class="chrome" href="/">Home</a>
-<div id="hint" class="chrome">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click a piece to walk to it</div>
+<div id="hint" class="chrome"><span class="desk">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click a piece to walk to it</span><span class="touch">drag to look · pinch to walk · tap a piece</span></div>
 <div id="caption" class="chrome" aria-live="polite"><b></b><span></span></div>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }

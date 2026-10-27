@@ -76,13 +76,17 @@ export function walker(start, room = ROOM) {
     const p = pointers.get(id);
     if (!p || !Number.isFinite(x) || !Number.isFinite(y)) return;  // a bad sample neither moves you nor resets travel
     const dx = x - p.x, dy = y - p.y;
+    const o = pointers.size === 2 ? [...pointers.values()].find(q => q !== p) : null;  // the other finger of a pinch
+    const spread = o ? Math.hypot(x - o.x, y - o.y) - Math.hypot(p.x - o.x, p.y - o.y) : 0;
     p.x = x; p.y = y;
     if (tap && (tap.travel += Math.hypot(dx, dy)) > 6) tap = null;
-    if (pointers.size > 1) return;
-    if (p.slide) move(dy * 0.01, -dx * 0.01); else turn(dx, dy);
+    // two fingers: spreading them walks forward, pinching walks back, and moving both slides like a
+    // sliding drag (the pair's midpoint moves half as far as one finger). Three or more do nothing.
+    if (o) move((spread + dy / 2) * 0.01, -dx / 2 * 0.01);
+    else if (pointers.size === 1) { if (p.slide) move(dy * 0.01, -dx * 0.01); else turn(dx, dy); }
   };
   return {
-    // drag looks, a sliding drag walks; with two pointers down neither acts, but both stay current.
+    // drag looks, a sliding drag walks, two fingers pinch to walk; every pointer stays current.
     // primary: the main button of the first pointer (a right-drag or a second finger is never a tap)
     pointerDown(id, x, y, slide, primary) {
       tap = !pointers.size && primary && !slide ? { travel: 0 } : null;

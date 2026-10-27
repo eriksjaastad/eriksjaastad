@@ -52,12 +52,12 @@ test("wheel: a Firefox line notch walks as far as the same pixels; output is bou
 const at = () => walker({ x: 0, z: 0, yaw: 0, pitch: 0 }), walkFor = (w, ms) => { w.frame(0); return w.frame(ms); };
 
 test("walker: any input keeps eye height, no roll, pitch within +-1.45 and floor under you", () => {
-  const ev = fc.tuple(fc.integer({ min: 0, max: 4 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }));
+  const ev = fc.tuple(fc.integer({ min: 0, max: 4 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: -900, max: 900 }), fc.integer({ min: 1, max: 3 }));
   fc.assert(fc.property(fc.array(ev, { maxLength: 30 }), events => {
     const w = at();
     let t = 0;  // a frame after every event, so walks to a (possibly unreachable) spot run too
-    for (const [k, a, b] of events) {
-      [() => w.pointerDown(1, a, b, a > 0), () => w.pointerMove(1, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(1), () => w.goTo({ x: a / 90, z: b / 90 }, { x: 0, y: 1, z: -9 })][k]();
+    for (const [k, a, b, id] of events) {  // up to three pointers, so pinches and their slides walk too
+      [() => w.pointerDown(id, a, b, a > 0), () => w.pointerMove(id, a, b), () => w.wheel(a, 0, 800), () => w.pointerUp(id), () => w.goTo({ x: a / 90, z: b / 90 }, { x: 0, y: 1, z: -9 })][k]();
       w.frame(t += 16);
     }
     const p = w.frame(t + 16);
@@ -79,6 +79,21 @@ test("walker: after two fingers become one, the next 1 px move turns 1 px worth"
   assert.ok(Math.abs(w.frame(0).yaw - 0.005) < 1e-12);
 });
 
+test("pinch: spreading two fingers walks forward, pinching walks back, moving both slides; a third finger stops it", () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const two = () => { const w = at(); w.pointerDown(1, 0, 0, false); w.pointerDown(2, 100, 0, false); return w; };
+  let w = two(); w.pointerMove(1, -30, 0); w.pointerMove(2, 130, 0); let p = w.frame(0);
+  assert.ok(near(p.z, -0.6) && near(p.x, 0) && p.yaw === 0, "spread 60 px walks 0.6 m forward without turning");
+  w = two(); w.pointerMove(1, 20, 0); w.pointerMove(2, 80, 0); p = w.frame(0);
+  assert.ok(near(p.z, 0.4) && near(p.x, 0), "pinch 40 px walks back");
+  w = two(); w.pointerMove(1, 0, 20); w.pointerMove(2, 100, 20); p = w.frame(0);
+  assert.ok(near(p.z, -0.2) && near(p.x, 0), "both fingers 20 px down walks forward like a sliding drag");
+  w = two(); w.pointerMove(1, 20, 0); w.pointerMove(2, 120, 0); assert.ok(near(w.frame(0).x, -0.2), "both 20 px right slides left");
+  w = two(); w.pointerDown(3, 50, 50, false); w.pointerMove(2, 400, 0); w.pointerMove(3, 0, 300);
+  p = w.frame(0); assert.ok(p.x === 0 && p.z === 0 && p.yaw === 0, "three fingers do nothing");
+  w = at(); w.pointerDown(1, 0, 0, false); w.pointerDown(2, 300, 0, false); p = w.frame(0);
+  assert.ok(p.x === 0 && p.z === 0 && p.yaw === 0, "a second finger landing far away does not move you");
+});
 
 test("walker: each control moves the view the way it says, and a released key stops", () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
