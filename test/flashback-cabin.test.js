@@ -71,5 +71,5 @@ test("crayons: 64 in the box, all sharp but one worn stub per site colour, and n
     if (!k.worn) assert.ok(k.top > Math.max(...list.filter(o => o.worn && o.y === k.y).map(o => o.top), -Infinity), "worn ones are shorter");
   }
   for (const [i, a] of list.entries()) for (const b of list.slice(i + 1))
-    if (a.y === b.y) assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= 2 * CRAYON.r, "no two crayons in the same place");
+    if (Math.abs(a.y - b.y) < CRAYON.body) assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= 2 * CRAYON.r, "no two crayons side by side overlap");
 });
