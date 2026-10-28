@@ -115,7 +115,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { ROBOT, pose, turner } from "./toys.js";
+import { ROBOT, pose, inHands } from "./toys.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
@@ -618,16 +618,15 @@ const pivot = new THREE.Group(); pivot.add(held.g);  // it turns about its middl
 holdScene.add(pivot, new THREE.HemisphereLight("#fff4e6", "#3a2a20", 1.6));
 const key = new THREE.DirectionalLight("#ffffff", 2.2); key.position.set(0.3, 0.5, 0.6); holdScene.add(key);
 held.g.position.y = -0.075; holdCam.position.set(0, 0.02, 0.5); holdCam.lookAt(0, 0, 0);
-let holdView = null, inHand = turner();
+let holdView = null;
+const inHand = inHands(holdCanvas, () => change.toggle("robot"));
 function openHold() {
   if (!holdView) { holdView = new THREE.WebGLRenderer({ canvas: holdCanvas, antialias: true, alpha: true }); holdView.setPixelRatio(Math.min(devicePixelRatio, 2)); }
-  inHand = turner(); holdEl.showModal();
+  inHand.reset(); holdEl.showModal();
   const size = holdCanvas.clientWidth; holdView.setSize(size, size, false);
 }
-holdCanvas.addEventListener("pointerdown", e => { if (inHand.grab(e.clientX, e.clientY, e.pointerId)) holdCanvas.setPointerCapture(e.pointerId); });
-holdCanvas.addEventListener("pointermove", e => inHand.move(e.clientX, e.clientY, e.pointerId));
-holdCanvas.addEventListener("pointerup", e => { if (inHand.release(e.pointerId)) change.toggle("robot"); });
-holdCanvas.addEventListener("pointercancel", e => inHand.cancel(e.pointerId));
+holdEl.addEventListener("close", () => inHand.drop());  // a finger still down when it's put back changes nothing later
+addEventListener("blur", () => inHand.drop());
 holdEl.querySelector(".change").onclick = () => change.toggle("robot");
 holdEl.querySelector(".close").onclick = () => holdEl.close();
 holdEl.addEventListener("click", e => { if (e.target === holdEl) holdEl.close(); });

@@ -42,8 +42,25 @@ export function turner(yaw = 0.5, pitch = 0.25) {
       yaw += (x - lastX) * TURN; pitch = Math.min(TIP, Math.max(-TIP, pitch + (y - lastY) * TURN));
       travel += Math.hypot(x - lastX, y - lastY); lastX = x; lastY = y;
     },
-    // the finger lifts: true if that was a tap
-    release(id = 0) { if (id !== owner) return false; owner = null; return travel < TAP; },
-    cancel(id = 0) { if (id === owner) owner = null; },
+    // the finger lifts at x, y (where it lifts counts): true if that was a tap
+    release(x, y, id = 0) { if (id !== owner) return false; this.move(x, y, id); owner = null; return travel < TAP; },
+    // a finger's press was interrupted: nothing it does from here counts; with no id, whichever finger holds it
+    cancel(id) { if (id === undefined || id === owner) owner = null; },
   };
+}
+
+// The page's pointer events on the thing in your hands, wired to a turner: every coalesced sample of a move counts,
+// so a fast drag can't pass for a tap, and the press ends on lift, cancel or lost capture. onTap() runs for a tap.
+// drop() ends any press (the view closed or the window lost focus), so a late lift does nothing; reset() starts over
+// with a fresh turn for the next time it's picked up.
+export function inHands(el, onTap) {
+  let t = turner();
+  el.addEventListener("pointerdown", e => { if (t.grab(e.clientX, e.clientY, e.pointerId)) el.setPointerCapture?.(e.pointerId); });
+  el.addEventListener("pointermove", e => {
+    const all = e.getCoalescedEvents?.();  // every sample since the last event; Safari has none
+    for (const c of all?.length ? all : [e]) t.move(c.clientX, c.clientY, e.pointerId);
+  });
+  el.addEventListener("pointerup", e => { if (t.release(e.clientX, e.clientY, e.pointerId)) onTap(); });
+  for (const type of ["pointercancel", "lostpointercapture"]) el.addEventListener(type, e => t.cancel(e.pointerId));
+  return { get yaw() { return t.yaw; }, get pitch() { return t.pitch; }, drop() { t.cancel(); }, reset() { t = turner(); } };
 }
