@@ -17,7 +17,7 @@ export const SPOTS = {
   rollerblades: { stand: { x: 1.6, z: -2.6 }, look: { x: 2.7, y: 0.1, z: -3.6 } },
   phone: { stand: { x: -2.1, z: -1.9 }, look: { x: -3.6, y: 0.8, z: -2.25 } },
   crayons: { stand: { x: -0.4, z: -2.95 }, look: { x: -0.4, y: 1.06, z: -3.43 } },
-  robot: { stand: { x: 0.35, z: -2.95 }, look: { x: 0.35, y: 1.06, z: -3.43 } },
+  counter: { stand: { x: 0.08, z: -2.95 }, look: { x: 0.08, y: 1.0, z: -3.45 } },
 };
 
 // The chest's drawers and cabinet doors. Each tap flips one between shut and open, and it moves there at a steady

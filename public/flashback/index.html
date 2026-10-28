@@ -67,7 +67,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 #dial .number { font: 600 28px var(--mono); letter-spacing: .08em; color: var(--ink); min-height: 1.2em; }
 #dial .line { font: 13px var(--mono); color: #ffc46b; min-height: 2.6em; max-width: 260px; }
 #dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
-/* holding a thing from a drawer: it fills the screen; drag to turn it over, tap it (or the button) to change it */
+/* holding a thing from the counter: it fills the screen; drag to turn it over, tap it (or the button) to change it */
 #hold .wrap { display: grid; justify-items: center; gap: 10px; }
 #hold canvas { width: min(92vw, 70dvh, 560px); height: min(92vw, 70dvh, 560px); touch-action: none; cursor: grab; display: block; }
 #hold .note { font: 13px var(--mono); color: #ffc46b; } #hold nav { display: flex; gap: 10px; }
@@ -102,10 +102,10 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
     <button class="hang">Hang up</button>
   </div>
 </div></dialog>
-<dialog id="hold" aria-label="The robot, in your hands"><div class="wrap">
-  <canvas aria-label="The robot: drag to turn it over, tap it to change it"></canvas>
-  <div class="note">drag to turn it over · tap it to change it</div>
-  <nav><button class="change">Change it</button><button class="close">Put it back</button></nav>
+<dialog id="hold" aria-label="In your hands"><div class="wrap">
+  <canvas></canvas>
+  <div class="note"></div>
+  <nav><button class="change"></button><button class="close">Put it back</button></nav>
 </div></dialog>
 <dialog id="photo" aria-label="Photo"><figure><img alt=""><figcaption></figcaption><button class="close">Back to the album</button></figure></dialog>
 <script type="importmap">
@@ -115,7 +115,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { ROBOT, pose, inHands } from "./toys.js";
+import { THINGS, pose, inHands } from "./toys.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
@@ -333,22 +333,30 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   piece([g], "Crayons", "the box of 64", SPOTS.crayons);
 }
 
-// on the countertop, beside the crayons: the robot that changes into a truck. Tap it to walk up, again to pick it up;
-// it changes the same in your hands and on the counter, so it goes back the way you left it.
-const robotIn = () => {  // one robot, built from toys.js's parts; returns the group and its meshes by part
-  const g = new THREE.Group(), parts = {};
-  for (const p of ROBOT) {
-    const [a, b, c] = p.size, geo = p.shape === "box" ? new THREE.BoxGeometry(a, b, c) : new THREE.CylinderGeometry(a, a, b, p.shape === "wheel" ? 14 : 8);
-    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.colour, roughness: p.shape === "stack" ? 0.3 : 0.5, metalness: p.shape === "stack" ? 0.8 : 0 }));
-    m.castShadow = true; g.add(m); parts[p.name] = m;
+// on the countertop, beside the crayons: the brick, the flip phone, the MP3 player and the robot (toys.js). Tap one
+// to walk up, again to pick it up; it changes the same in your hands and on the counter, so it goes back the way you
+// left it.
+const build = name => {  // one of the things, from its parts; returns the group and its meshes by part
+  const g = new THREE.Group(), meshes = {};
+  for (const p of THINGS[name].parts) {
+    const [a, b, c] = p.size, geo = p.shape === "box" ? new THREE.BoxGeometry(a, b, c) : new THREE.CylinderGeometry(a, a, b, p.shape === "wheel" ? 18 : 8);
+    if (p.from) geo.translate(...p.from);
+    const shiny = p.shape === "rod" || p.colour === "#aeb3bb" || p.colour === "#c8ccd4";
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.colour, roughness: shiny ? 0.35 : 0.5, metalness: shiny ? 0.6 : 0 }));
+    m.castShadow = true; g.add(m); meshes[p.name] = m;
   }
-  return { g, parts };
+  return { name, g, meshes };
 };
-const shape = ({ parts }, f) => { for (const p of ROBOT) { const [x, y, z, rx, ry, rz] = pose(p, f); parts[p.name].position.set(x, y, z); parts[p.name].rotation.set(rx, ry, rz); } };
-const robot = robotIn(), change = hinges(["robot"]);
-robot.g.name = "toy"; robot.g.position.set(0.35, COUNTER, BACK + 0.57); robot.g.rotation.y = -0.5;
-scene.add(robot.g); shape(robot, 0);
-piece([robot.g], "Robot", "it changes into a truck", SPOTS.robot);
+const shape = ({ name, meshes }, f) => {
+  for (const p of THINGS[name].parts) { const [x, y, z, rx, ry, rz] = pose(p, f); meshes[p.name].position.set(x, y, z); meshes[p.name].rotation.set(rx, ry, rz); }
+};
+const change = hinges(Object.keys(THINGS)), onCounter = {};
+for (const [name, t] of Object.entries(THINGS)) {
+  const it = onCounter[name] = build(name);
+  it.g.name = `thing:${name}`; it.g.position.set(t.at[0], COUNTER, BACK + 0.55); it.g.rotation.y = t.at[1];
+  scene.add(it.g); shape(it, 0);
+  piece([it.g], t.title, t.note, SPOTS.counter);
+}
 
 // back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
 {
@@ -611,23 +619,30 @@ let dialLast = null;
   dialLast = now; requestAnimationFrame(spin);
 })(performance.now());
 
-// ---------- holding the robot: its own small scene, drawn only while it's open; toys.js turns it in your hands ----------
+// ---------- holding a thing: its own small scene, drawn only while it's open; toys.js turns it in your hands ----------
 const holdEl = document.getElementById("hold"), holdCanvas = holdEl.querySelector("canvas");
-const held = robotIn(), holdScene = new THREE.Scene(), holdCam = new THREE.PerspectiveCamera(30, 1, 0.01, 2);
-const pivot = new THREE.Group(); pivot.add(held.g);  // it turns about its middle, not its feet
+const holdScene = new THREE.Scene(), holdCam = new THREE.PerspectiveCamera(30, 1, 0.01, 2);
+const pivot = new THREE.Group();  // it turns about its middle, not its feet
 holdScene.add(pivot, new THREE.HemisphereLight("#fff4e6", "#3a2a20", 1.6));
 const key = new THREE.DirectionalLight("#ffffff", 2.2); key.position.set(0.3, 0.5, 0.6); holdScene.add(key);
-held.g.position.y = -0.075; holdCam.position.set(0, 0.02, 0.5); holdCam.lookAt(0, 0, 0);
-let holdView = null;
-const inHand = inHands(holdCanvas, () => change.toggle("robot"));
-function openHold() {
+let holdView = null, held = null;
+const heldCopies = {};  // name -> its copy for your hands, built the first time you pick it up
+const inHand = inHands(holdCanvas, () => change.toggle(held.name));
+function openHold(name) {
   if (!holdView) { holdView = new THREE.WebGLRenderer({ canvas: holdCanvas, antialias: true, alpha: true }); holdView.setPixelRatio(Math.min(devicePixelRatio, 2)); }
+  const t = THINGS[name];
+  held = heldCopies[name] ??= build(name);
+  pivot.clear(); pivot.add(held.g); held.g.position.y = -t.middle; holdCam.position.set(0, 0.02, t.view); holdCam.lookAt(0, 0, 0);
+  holdEl.setAttribute("aria-label", `The ${t.title.toLowerCase()}, in your hands`);
+  holdCanvas.setAttribute("aria-label", `The ${t.title.toLowerCase()}: drag to turn it over, tap it to ${t.verb.toLowerCase()}`);
+  holdEl.querySelector(".note").textContent = `drag to turn it over · tap it: ${t.verb.toLowerCase()}`;
+  holdEl.querySelector(".change").textContent = t.verb;
   inHand.reset(); holdEl.showModal();
   const size = holdCanvas.clientWidth; holdView.setSize(size, size, false);
 }
 holdEl.addEventListener("close", () => inHand.drop());  // a finger still down when it's put back changes nothing later
 addEventListener("blur", () => inHand.drop());
-holdEl.querySelector(".change").onclick = () => change.toggle("robot");
+holdEl.querySelector(".change").onclick = () => change.toggle(held.name);
 holdEl.querySelector(".close").onclick = () => holdEl.close();
 holdEl.addEventListener("click", e => { if (e.target === holdEl) holdEl.close(); });
 
@@ -635,9 +650,9 @@ holdEl.addEventListener("click", e => { if (e.target === holdEl) holdEl.close();
 const open = hinges();
 let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
-  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial; the robot, pick up
-    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && !["phone", "notepad", "toy"].includes(o.name)) o = o.parent;
-    if (o?.name === "toy") openHold();
+  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial; a thing on the counter, pick up
+    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && !["phone", "notepad"].includes(o.name) && !o.name.startsWith("thing:")) o = o.parent;
+    if (o?.name.startsWith("thing:")) openHold(o.name.slice(6));
     else if (o?.name === "phone" || o?.name === "notepad") openDial();
     else if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
     return !!o;
@@ -647,8 +662,8 @@ walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
     const dt = last === null ? 0 : (now - last) / 1000, f = open.step(dt); last = now;
     for (const i of [0, 1, 2]) parts[`drawer${i}`].position.z = 0.285 + f[`drawer${i}`] * 0.36;
     parts.doorLeft.rotation.y = -f.doorLeft * 1.75; parts.doorRight.rotation.y = f.doorRight * 1.75;
-    const r = change.step(dt).robot; shape(robot, r);
-    if (holdEl.open) { shape(held, r); pivot.rotation.set(inHand.pitch, inHand.yaw, 0); holdView.render(holdScene, holdCam); }
+    const c = change.step(dt); for (const name in onCounter) shape(onCounter[name], c[name]);
+    if (holdEl.open) { shape(held, c[held.name]); pivot.rotation.set(inHand.pitch, inHand.yaw, 0); holdView.render(holdScene, holdCam); }
   } });
 </script>
 </html>
