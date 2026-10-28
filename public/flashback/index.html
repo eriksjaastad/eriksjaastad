@@ -115,7 +115,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { THINGS, pose, inHands } from "./toys.js";
+import { THINGS, pose, framing, inHands } from "./toys.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
@@ -621,7 +621,7 @@ let dialLast = null;
 
 // ---------- holding a thing: its own small scene, drawn only while it's open; toys.js turns it in your hands ----------
 const holdEl = document.getElementById("hold"), holdCanvas = holdEl.querySelector("canvas");
-const holdScene = new THREE.Scene(), holdCam = new THREE.PerspectiveCamera(30, 1, 0.01, 2);
+const holdScene = new THREE.Scene(), holdCam = new THREE.PerspectiveCamera(30, 1, 0.01, 4);
 const pivot = new THREE.Group();  // it turns about its middle, not its feet
 holdScene.add(pivot, new THREE.HemisphereLight("#fff4e6", "#3a2a20", 1.6));
 const key = new THREE.DirectionalLight("#ffffff", 2.2); key.position.set(0.3, 0.5, 0.6); holdScene.add(key);
@@ -632,7 +632,8 @@ function openHold(name) {
   if (!holdView) { holdView = new THREE.WebGLRenderer({ canvas: holdCanvas, antialias: true, alpha: true }); holdView.setPixelRatio(Math.min(devicePixelRatio, 2)); }
   const t = THINGS[name];
   held = heldCopies[name] ??= build(name);
-  pivot.clear(); pivot.add(held.g); held.g.position.y = -t.middle; holdCam.position.set(0, 0.02, t.view); holdCam.lookAt(0, 0, 0);
+  const { middle, distance } = framing(t.parts, holdCam.fov);
+  pivot.clear(); pivot.add(held.g); held.g.position.y = -middle; holdCam.position.set(0, 0, distance); holdCam.lookAt(0, 0, 0);
   holdEl.setAttribute("aria-label", `The ${t.title.toLowerCase()}, in your hands`);
   holdCanvas.setAttribute("aria-label", `The ${t.title.toLowerCase()}: drag to turn it over, tap it to ${t.verb.toLowerCase()}`);
   holdEl.querySelector(".note").textContent = `drag to turn it over · tap it: ${t.verb.toLowerCase()}`;

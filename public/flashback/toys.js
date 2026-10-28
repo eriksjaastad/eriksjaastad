@@ -53,19 +53,31 @@ const MP3 = [
   same({ name: "slot", shape: "box", size: [0.0012, 0.003, 0.036], colour: "#30343a" }, flat(0.0302, 0.008, 0.008)),
   { name: "disc", shape: "wheel", size: [0.016, 0.0012, 0.016], colour: "#d4b25a", a: flat(0.012, 0.008, 0.008), b: flat(0.05, 0.008, 0.008) },
 ];
-// each thing: its caption, what tapping it does, its parts, where it rests on the counter (x, turned), and in your
-// hands how high its middle is and how far away you hold it
+// each thing: its caption, what tapping it does, its parts, and where it rests on the counter (x, turned)
 export const THINGS = {
-  brick: { title: "Cell phone", note: "the brick: dropped a hundred times, never broke", verb: "Turn it on", parts: BRICK, at: [-0.22, 0.3], middle: 0.01, view: 0.4 },
-  flip: { title: "Flip phone", note: "snap it shut to hang up", verb: "Flip it open", parts: FLIP, at: [-0.03, -0.15], middle: 0.02, view: 0.36 },
-  mp3: { title: "MP3 player", note: "its discs were the size of a quarter", verb: "Eject the disc", parts: MP3, at: [0.15, 0.2], middle: 0.008, view: 0.3 },
-  robot: { title: "Robot", note: "it changes into a truck", verb: "Change it", parts: ROBOT, at: [0.4, -0.5], middle: 0.075, view: 0.5 },
+  brick: { title: "Cell phone", note: "the brick: dropped a hundred times, never broke", verb: "Turn it on", parts: BRICK, at: [-0.22, 0.3] },
+  flip: { title: "Flip phone", note: "snap it shut to hang up", verb: "Flip it open", parts: FLIP, at: [-0.03, -0.15] },
+  mp3: { title: "MP3 player", note: "its discs were the size of a quarter", verb: "Eject the disc", parts: MP3, at: [0.15, 0.2] },
+  robot: { title: "Robot", note: "it changes into a truck", verb: "Change it", parts: ROBOT, at: [0.4, -0.5] },
 };
 
 // a part's pose `f` of the way from a (0) to b (1); f outside 0..1 is held at the ends
 export function pose(part, f) {
   const k = Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 0;
   return part.a.map((v, i) => (1 - k) * v + k * part.b[i]);  // exact at both ends
+}
+
+// The furthest any point of a part can be from its position: how far it's drawn from there, plus half its diagonal.
+export const reach = p => Math.hypot(...(p.from ?? [0, 0, 0])) + Math.hypot(...p.size) / 2;
+
+// How to hold a thing so all of it stays in view however it's turned and whichever form it's in: it turns about
+// `middle` (a height between its lowest and highest points), and every point of it, in any pose between its two
+// forms, lies within `radius` of there; a camera with a `fov`-degree view sees all of that sphere from `distance`.
+export function framing(parts, fov = 30) {
+  const poses = parts.flatMap(p => [0, 0.25, 0.5, 0.75, 1].map(f => ({ at: pose(p, f), r: reach(p) })));
+  const low = Math.min(...poses.map(q => q.at[1] - q.r)), high = Math.max(...poses.map(q => q.at[1] + q.r)), middle = (low + high) / 2;
+  const radius = Math.max(...poses.map(({ at: [x, y, z], r }) => Math.hypot(x, y - middle, z) + r));
+  return { middle, radius, distance: radius / Math.sin((fov / 2) * Math.PI / 180) };
 }
 
 // Turning a thing over in your hands: one finger (pointer `id`) drags it round, sideways to spin it, up and down

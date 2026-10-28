@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { ROBOT, THINGS, pose, turner, inHands, TIP, TAP } from "../public/flashback/toys.js";
+import { ROBOT, THINGS, pose, reach, framing, turner, inHands, TIP, TAP } from "../public/flashback/toys.js";
 import { COUNTER, DOORS_FROM } from "../public/flashback/cabin.js";
 
 const ALL = Object.values(THINGS).flatMap(t => t.parts);
@@ -19,8 +19,6 @@ test("things: 0 is one form and 1 the other, every pose in between lies between 
 });
 
 test("things: each part named once per thing; on the counter, in either form or changing, nothing reaches the cabinet doors' swing", () => {
-  // the furthest any point of a part can be from its position: where it's drawn from, plus half its diagonal
-  const reach = p => Math.hypot(...(p.from ?? [0, 0, 0])) + Math.hypot(...p.size) / 2;
   for (const [name, t] of Object.entries(THINGS)) {
     assert.equal(new Set(t.parts.map(p => p.name)).size, t.parts.length, name);
     for (const f of [0, 0.25, 0.5, 0.75, 1]) for (const p of t.parts) assert.ok(COUNTER + pose(p, f)[1] + reach(p) < DOORS_FROM, `${name} ${p.name} at ${f}`);
@@ -28,6 +26,31 @@ test("things: each part named once per thing; on the counter, in either form or 
   // they don't overlap each other on the counter: each is further from the next than their halves' lengths
   const spots = Object.values(THINGS).map(t => t.at[0]).sort((a, b) => a - b);
   spots.slice(1).forEach((x, i) => assert.ok(x - spots[i] > 0.15, `${spots[i]} and ${x}`));
+});
+
+test("things: held in your hands, every corner of every part, in any pose and turned any way, stays in the camera's view", () => {
+  const corners = p => [-1, 1].flatMap(a => [-1, 1].flatMap(b => [-1, 1].map(c => [a * p.size[0] / 2, b * p.size[1] / 2, c * p.size[2] / 2])));
+  const rot = ([x, y, z], [rx, ry, rz]) => {  // three.js's XYZ Euler order: z first, then y, then x
+    [x, y] = [x * Math.cos(rz) - y * Math.sin(rz), x * Math.sin(rz) + y * Math.cos(rz)];
+    [x, z] = [x * Math.cos(ry) + z * Math.sin(ry), -x * Math.sin(ry) + z * Math.cos(ry)];
+    [y, z] = [y * Math.cos(rx) - z * Math.sin(rx), y * Math.sin(rx) + z * Math.cos(rx)];
+    return [x, y, z];
+  };
+  for (const [name, t] of Object.entries(THINGS)) {
+    const { middle, radius, distance } = framing(t.parts), half = Math.tan(15 * Math.PI / 180);
+    fc.assert(fc.property(fc.double({ min: 0, max: 1, noNaN: true }), fc.double({ min: -Math.PI, max: Math.PI, noNaN: true }), fc.double({ min: -TIP, max: TIP, noNaN: true }), (f, yaw, pitch) => {
+      for (const p of t.parts) {
+        const [x, y, z, rx, ry, rz] = pose(p, f), off = p.from ?? [0, 0, 0];
+        for (const c of corners(p)) {
+          const local = rot(c.map((v, i) => v + off[i]), [rx, ry, rz]), at = [local[0] + x, local[1] + y - middle, local[2] + z];
+          if (Math.hypot(...at) > radius + 1e-9) return false;
+          const [vx, vy, vz] = rot(at, [pitch, yaw, 0]), depth = distance - vz;  // the camera looks down -z from (0, 0, distance)
+          if (Math.abs(vx) > depth * half + 1e-9 || Math.abs(vy) > depth * half + 1e-9) return false;
+        }
+      }
+      return true;
+    }), { numRuns: 300 });
+  }
 });
 
 test("robot: it stands up tall as a robot and lies long and low as a truck", () => {
