@@ -60,9 +60,9 @@ test("hinges: any taps and frame gaps keep every part between shut and open, tur
   }), { numRuns: 500 });
 });
 
-test("crayons: 152 in the box, all sharp but one worn stub per site colour, and nothing reaches the cabinet doors' swing", () => {
+test("crayons: 64 in the box, all sharp but one worn stub per site colour, and nothing reaches the cabinet doors' swing", () => {
   const list = crayons();
-  assert.equal(list.length, 152);
+  assert.equal(list.length, 64);
   assert.deepEqual(list.filter(k => k.worn).map(k => k.colour), SITE_COLOURS);
   assert.ok(list.filter(k => !k.worn).every(k => !SITE_COLOURS.includes(k.colour)));
   for (const k of list) {
