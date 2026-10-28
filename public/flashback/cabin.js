@@ -16,6 +16,7 @@ export const SPOTS = {
   snowboard: { stand: { x: 1.9, z: -2.1 }, look: { x: 3.6, y: 0.9, z: -3.7 } },
   rollerblades: { stand: { x: 1.6, z: -2.6 }, look: { x: 2.7, y: 0.1, z: -3.6 } },
   phone: { stand: { x: -2.1, z: -1.9 }, look: { x: -3.6, y: 0.8, z: -2.25 } },
+  crayons: { stand: { x: -0.45, z: -2.45 }, look: { x: -0.45, y: 1.02, z: -3.5 } },
 };
 
 // The chest's drawers and cabinet doors. Each tap flips one between shut and open, and it moves there at a steady

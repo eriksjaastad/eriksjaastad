@@ -266,6 +266,39 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   scene.add(s, s.target);
 }
 
+// on the countertop: the biggest box of crayons, open, standing in tiers. Nearly every crayon is still sharp; only
+// the few in this site's colours are worn down.
+{
+  const SITE = ["#ff6a00", "#ffc46b", "#ff8a65", "#ece7dc", "#9a968d", "#2e3039", "#15161b"];
+  const ROWS = 6, PER = 25, R = 0.0042, worn = new Set([9, 33, 52, 70, 96, 118, 141]);  // which crayons (of 150)
+  const g = new THREE.Group(), green = new THREE.MeshStandardMaterial({ color: "#2f8f3a", roughness: 0.7 });
+  const yellow = new THREE.MeshStandardMaterial({ color: "#f6c81c", roughness: 0.7 });
+  const box = (w, h, d, mat, x, y, z) => { const m = mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  box(0.23, 0.07, 0.006, yellow, 0, 0.035, 0.057);    // front, low, so the tiers show
+  box(0.23, 0.11, 0.006, green, 0, 0.055, -0.057);    // back
+  for (const x of [-0.115, 0.115]) box(0.006, 0.11, 0.12, green, x, 0.055, 0);
+  box(0.23, 0.004, 0.12, green, 0, 0.002, 0);
+  const lid = new THREE.Group(); lid.position.set(0, 0.11, -0.06); lid.rotation.x = -1.75; g.add(lid);  // flipped open, leaning back a little
+  lid.add(mesh(new THREE.BoxGeometry(0.23, 0.004, 0.12), yellow, 0, 0, 0.06));
+  lid.add(mesh(new THREE.BoxGeometry(0.16, 0.001, 0.05), green, 0, -0.003, 0.06));  // the label
+  const n = ROWS * PER, bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(R, R, 0.075, 8), new THREE.MeshStandardMaterial({ roughness: 0.6 }), n);
+  const tips = new THREE.InstancedMesh(new THREE.ConeGeometry(R, 0.016, 8), new THREE.MeshStandardMaterial({ roughness: 0.6 }), n);
+  const m4 = new THREE.Matrix4(), c = new THREE.Color();
+  let site = 0;
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / PER), x = -0.105 + (i % PER) * 0.00875, z = 0.042 - row * 0.017, y = 0.03 + row * 0.011;  // back rows stand higher
+    const isWorn = worn.has(i);
+    c.set(isWorn ? SITE[site++] : `hsl(${(i * 137.5) % 360}, ${55 + (i * 7) % 40}%, ${38 + (i * 11) % 30}%)`);
+    bodies.setMatrixAt(i, m4.makeTranslation(x, y, z)); bodies.setColorAt(i, c);
+    // a sharp tip is a full cone; a worn one is a short rounded stub
+    tips.setMatrixAt(i, m4.makeTranslation(x, y + 0.0375 + (isWorn ? 0.002 : 0.008), z).multiply(new THREE.Matrix4().makeScale(isWorn ? 1.15 : 1, isWorn ? 0.25 : 1, isWorn ? 1.15 : 1)));
+    tips.setColorAt(i, c);
+  }
+  bodies.castShadow = true; g.add(bodies, tips);
+  g.position.set(-0.45, 1.0, BACK + 0.56); g.rotation.y = 0.12; scene.add(g);
+  piece([g], "Crayons", "the big box", SPOTS.crayons);
+}
+
 // back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
 {
   // the board: a real outline (wide nose and tail, a waisted sidecut), thin, with a '90s top sheet and two bindings,
