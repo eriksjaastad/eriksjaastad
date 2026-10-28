@@ -67,6 +67,12 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 #dial .number { font: 600 28px var(--mono); letter-spacing: .08em; color: var(--ink); min-height: 1.2em; }
 #dial .line { font: 13px var(--mono); color: #ffc46b; min-height: 2.6em; max-width: 260px; }
 #dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+/* holding a thing from a drawer: it fills the screen; drag to turn it over, tap it (or the button) to change it */
+#hold .wrap { display: grid; justify-items: center; gap: 10px; }
+#hold canvas { width: min(92vw, 70dvh, 560px); height: min(92vw, 70dvh, 560px); touch-action: none; cursor: grab; display: block; }
+#hold .note { font: 13px var(--mono); color: #ffc46b; } #hold nav { display: flex; gap: 10px; }
+#hold button { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+#hold button:hover { border-color: var(--neon); color: var(--neon); }
 @media (max-width: 700px) { .page { padding: 16px; gap: 10px; } }
 </style>
 <div id="stage"></div>
@@ -96,6 +102,11 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
     <button class="hang">Hang up</button>
   </div>
 </div></dialog>
+<dialog id="hold" aria-label="The robot, in your hands"><div class="wrap">
+  <canvas aria-label="The robot: drag to turn it over, tap it to change it"></canvas>
+  <div class="note">drag to turn it over · tap it to change it</div>
+  <nav><button class="change">Change it</button><button class="close">Put it back</button></nav>
+</div></dialog>
 <dialog id="photo" aria-label="Photo"><figure><img alt=""><figcaption></figcaption><button class="close">Back to the album</button></figure></dialog>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -104,6 +115,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
+import { ROBOT, pose, turner } from "./toys.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
@@ -321,6 +333,23 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   piece([g], "Crayons", "the box of 64", SPOTS.crayons);
 }
 
+// on the countertop, beside the crayons: the robot that changes into a truck. Tap it to walk up, again to pick it up;
+// it changes the same in your hands and on the counter, so it goes back the way you left it.
+const robotIn = () => {  // one robot, built from toys.js's parts; returns the group and its meshes by part
+  const g = new THREE.Group(), parts = {};
+  for (const p of ROBOT) {
+    const [a, b, c] = p.size, geo = p.shape === "box" ? new THREE.BoxGeometry(a, b, c) : new THREE.CylinderGeometry(a, a, b, p.shape === "wheel" ? 14 : 8);
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.colour, roughness: p.shape === "stack" ? 0.3 : 0.5, metalness: p.shape === "stack" ? 0.8 : 0 }));
+    m.castShadow = true; g.add(m); parts[p.name] = m;
+  }
+  return { g, parts };
+};
+const shape = ({ parts }, f) => { for (const p of ROBOT) { const [x, y, z, rx, ry, rz] = pose(p, f); parts[p.name].position.set(x, y, z); parts[p.name].rotation.set(rx, ry, rz); } };
+const robot = robotIn(), change = hinges(["robot"]);
+robot.g.name = "toy"; robot.g.position.set(0.35, COUNTER, BACK + 0.57); robot.g.rotation.y = -0.5;
+scene.add(robot.g); shape(robot, 0);
+piece([robot.g], "Robot", "it changes into a truck", SPOTS.robot);
+
 // back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
 {
   // the board: a real outline (wide nose and tail, a waisted sidecut), thin, with a '90s top sheet and two bindings,
@@ -496,7 +525,7 @@ photoEl.addEventListener("close", keepFocus);  // the browser returns focus to t
 // while reading, the walker's window listener never sees keydown (capture runs first); Escape still closes the top
 // dialog, which is the browser's default action. Arrows turn the pages when the book is on top.
 document.addEventListener("keydown", e => {
-  if (dialEl.open) { e.stopPropagation(); return; }  // the walker doesn't see keys while you're on the phone either
+  if (dialEl.open || holdEl.open) { e.stopPropagation(); return; }  // nor while you're on the phone or holding something
   if (!reading) return;
   e.stopPropagation();
   if (!photoEl.open && e.key === "ArrowRight") turn(1);
@@ -582,21 +611,45 @@ let dialLast = null;
   dialLast = now; requestAnimationFrame(spin);
 })(performance.now());
 
+// ---------- holding the robot: its own small scene, drawn only while it's open; toys.js turns it in your hands ----------
+const holdEl = document.getElementById("hold"), holdCanvas = holdEl.querySelector("canvas");
+const held = robotIn(), holdScene = new THREE.Scene(), holdCam = new THREE.PerspectiveCamera(30, 1, 0.01, 2);
+const pivot = new THREE.Group(); pivot.add(held.g);  // it turns about its middle, not its feet
+holdScene.add(pivot, new THREE.HemisphereLight("#fff4e6", "#3a2a20", 1.6));
+const key = new THREE.DirectionalLight("#ffffff", 2.2); key.position.set(0.3, 0.5, 0.6); holdScene.add(key);
+held.g.position.y = -0.075; holdCam.position.set(0, 0.02, 0.5); holdCam.lookAt(0, 0, 0);
+let holdView = null, inHand = turner();
+function openHold() {
+  if (!holdView) { holdView = new THREE.WebGLRenderer({ canvas: holdCanvas, antialias: true, alpha: true }); holdView.setPixelRatio(Math.min(devicePixelRatio, 2)); }
+  inHand = turner(); holdEl.showModal();
+  const size = holdCanvas.clientWidth; holdView.setSize(size, size, false);
+}
+holdCanvas.addEventListener("pointerdown", e => { if (inHand.grab(e.clientX, e.clientY, e.pointerId)) holdCanvas.setPointerCapture(e.pointerId); });
+holdCanvas.addEventListener("pointermove", e => inHand.move(e.clientX, e.clientY, e.pointerId));
+holdCanvas.addEventListener("pointerup", e => { if (inHand.release(e.pointerId)) change.toggle("robot"); });
+holdCanvas.addEventListener("pointercancel", e => inHand.cancel(e.pointerId));
+holdEl.querySelector(".change").onclick = () => change.toggle("robot");
+holdEl.querySelector(".close").onclick = () => holdEl.close();
+holdEl.addEventListener("click", e => { if (e.target === holdEl) holdEl.close(); });
+
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
 const open = hinges();
 let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
-  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial
-    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && o.name !== "phone" && o.name !== "notepad") o = o.parent;
-    if (o?.name === "phone" || o?.name === "notepad") openDial();
+  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial; the robot, pick up
+    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && !["phone", "notepad", "toy"].includes(o.name)) o = o.parent;
+    if (o?.name === "toy") openHold();
+    else if (o?.name === "phone" || o?.name === "notepad") openDial();
     else if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
     return !!o;
   },
   onFrame: now => {
     motes.rotation.y = now * 0.00002; motes.position.y = Math.sin(now * 0.0004) * 0.05;
-    const f = open.step(last === null ? 0 : (now - last) / 1000); last = now;
+    const dt = last === null ? 0 : (now - last) / 1000, f = open.step(dt); last = now;
     for (const i of [0, 1, 2]) parts[`drawer${i}`].position.z = 0.285 + f[`drawer${i}`] * 0.36;
     parts.doorLeft.rotation.y = -f.doorLeft * 1.75; parts.doorRight.rotation.y = f.doorRight * 1.75;
+    const r = change.step(dt).robot; shape(robot, r);
+    if (holdEl.open) { shape(held, r); pivot.rotation.set(inHand.pitch, inHand.yaw, 0); holdView.render(holdScene, holdCam); }
   } });
 </script>
 </html>
