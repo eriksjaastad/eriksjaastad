@@ -266,36 +266,48 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   scene.add(s, s.target);
 }
 
-// on the countertop: the biggest box of crayons, open, like the classic yellow carton (cabin.js lays out the crayons)
+// on the countertop: the classic box of 64 crayons, open (cabin.js lays out the crayons)
 {
-  // the carton's print, drawn once: yellow with green chevrons rising from the bottom corners and the count
-  const print = (w, h, words) => {
+  // the carton's print, drawn once: yellow with green chevrons from the bottom corners, and either the name or, on
+  // the flap, the count and a window of crayons
+  const print = (w, h, flap) => {
     const cv = document.createElement("canvas"); cv.width = 512; cv.height = Math.round(512 * h / w); const x = cv.getContext("2d"), H = cv.height;
-    x.fillStyle = "#f7b81e"; x.fillRect(0, 0, 512, H); x.fillStyle = "#1f8a3c";
-    for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H); x.lineTo(256 - s * 256, H * 0.25); x.lineTo(256 - s * 90, H); x.fill(); }
-    x.strokeStyle = "#1f8a3c"; x.lineWidth = 6; for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H * 0.12); x.lineTo(256 - s * 70, H); x.stroke(); }
-    x.fillStyle = "#145c28"; x.textAlign = "center"; x.font = `bold ${Math.round(H * 0.3)}px sans-serif`; x.fillText(words[0], 256, H * 0.42);
-    if (words[1]) { x.font = `bold ${Math.round(H * 0.17)}px sans-serif`; x.fillText(words[1], 256, H * 0.66); }
+    x.fillStyle = "#f5b316"; x.fillRect(0, 0, 512, H); x.fillStyle = "#1f8a3c";
+    if (!flap) for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H); x.lineTo(256 - s * 256, H * 0.2); x.lineTo(256 - s * 110, H); x.fill(); }
+    x.strokeStyle = "#1f8a3c"; x.lineWidth = 7; for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H * (flap ? 0.55 : 0.08)); x.lineTo(256 - s * (flap ? 220 : 90), H); x.stroke(); }
+    x.fillStyle = "#145c28"; x.textAlign = "center";
+    if (flap) {
+      x.font = `bold ${Math.round(H * 0.32)}px sans-serif`; x.fillText("64", 70, H * 0.4);
+      x.save(); x.beginPath(); x.ellipse(290, H * 0.38, 170, H * 0.3, 0, 0, Math.PI * 2); x.clip(); x.fillStyle = "#222"; x.fillRect(120, 0, 340, H);
+      ["#2a7fd4", "#1f9b5a", "#7cc242", "#f2a12e", "#e5532d", "#d42f5a", "#b04ab8", "#8a5fd0"].forEach((c, k) => {
+        x.fillStyle = c; x.fillRect(140 + k * 38, H * 0.2, 32, H * 0.6); x.beginPath(); x.moveTo(140 + k * 38, H * 0.2); x.lineTo(156 + k * 38, H * 0.06); x.lineTo(172 + k * 38, H * 0.2); x.fill();
+      });
+      x.restore();
+    } else {
+      x.font = `bold ${Math.round(H * 0.24)}px sans-serif`; x.fillText("CRAYONS", 256, H * 0.4);
+      x.font = `bold ${Math.round(H * 0.11)}px sans-serif`; x.fillStyle = "#c62828"; x.fillText("64 BRILLIANT COLORS", 256, H * 0.58);
+    }
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 });
   };
   const g = new THREE.Group(), green = new THREE.MeshStandardMaterial({ color: "#1f8a3c", roughness: 0.8 });
-  const card = new THREE.MeshStandardMaterial({ color: "#b89a6e", roughness: 0.95 });  // the plain cardboard inside
+  const card = new THREE.MeshStandardMaterial({ color: "#b39b78", roughness: 0.95 });  // the plain cardboard inside
   const box = (w, h, d, mat, x, y, z) => { const m = mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-  const { w, d, front, back, flap, across } = BOX, T = 0.004;
-  box(w, front, T, [card, card, card, card, print(w, front, ["CRAYONS", "152 COLORS"]), card], 0, front / 2, d / 2);
-  box(w, flap, T, [card, card, card, card, print(w, flap, ["152", ""]), card], 0, flap / 2, -d / 2).rotation.x = -0.06;  // back and its flap
+  const { w, d, front, back, flap, shelf } = BOX, T = 0.002;
+  box(w, front, T, [card, card, card, card, print(w, front, false), card], 0, front / 2, d / 2);
+  box(w, back, T, card, 0, back / 2, -d / 2);                                                         // the back
+  box(w, flap - back, T, [card, card, card, card, print(w, flap - back, true), card], 0, (back + flap) / 2, -d / 2);  // its flap, the open lid
   for (const x of [-w / 2, w / 2]) box(T, back, d, green, x, back / 2, 0);
   box(w, T, d, card, 0, T / 2, 0);
-  box(w - T, T, d - T, card, 0, 0.055, -0.035).scale.z = 0.45;      // the shelf the back tier stands on
-  box(w - T, 0.085, T, card, 0, 0.0425, 0.004);                    // the wall between the tiers
-  for (let c = 1; c < across; c++) for (const [z, h] of [[0.028, 0.06], [-0.032, 0.09]]) box(T, h, 0.05, card, -w / 2 + c * w / across, h / 2, z);
+  box(w - T, shelf, d / 2, card, 0, shelf / 2, -d / 4);           // the raised floor of the back tier
+  box(w - T, 0.09, T, card, 0, 0.045, 0.0035);                     // the wall between the tiers
+  box(T, 0.082, d / 2, card, 0, 0.041, d / 4); box(T, 0.12, d / 2, card, 0, 0.06, -d / 4);  // between the compartments
   const list = crayons(), m4 = new THREE.Matrix4(), c = new THREE.Color();
-  // a wrapper: the crayon's colour with two dark bands, as a texture the instance colour tints
+  // a wrapper: the crayon's colour with two dark bands near the top, as a texture the instance colour tints
   const wrap = document.createElement("canvas"); wrap.width = 4; wrap.height = 64; const wx = wrap.getContext("2d");
-  wx.fillStyle = "#fff"; wx.fillRect(0, 0, 4, 64); wx.fillStyle = "#222"; wx.fillRect(0, 6, 4, 5); wx.fillRect(0, 53, 4, 5);
+  wx.fillStyle = "#fff"; wx.fillRect(0, 0, 4, 64); wx.fillStyle = "#222"; wx.fillRect(0, 3, 4, 3); wx.fillRect(0, 9, 4, 2);
   const wrapTex = new THREE.CanvasTexture(wrap); wrapTex.colorSpace = THREE.SRGBColorSpace;
-  const bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r, CRAYON.r, CRAYON.body, 10), new THREE.MeshStandardMaterial({ map: wrapTex, roughness: 0.7 }), list.length);
-  const tips = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r * 0.35, CRAYON.r, CRAYON.tip, 10), new THREE.MeshStandardMaterial({ roughness: 0.45 }), list.length);
+  const bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r, CRAYON.r, CRAYON.body, 12), new THREE.MeshStandardMaterial({ map: wrapTex, roughness: 0.7 }), list.length);
+  const tips = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r * 0.4, CRAYON.r, CRAYON.tip, 12), new THREE.MeshStandardMaterial({ roughness: 0.45 }), list.length);
   list.forEach((k, i) => {
     c.set(k.colour);
     bodies.setMatrixAt(i, m4.makeTranslation(k.x, k.y, k.z)); bodies.setColorAt(i, c);
@@ -306,7 +318,7 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   });
   bodies.castShadow = true; g.add(bodies, tips);
   g.position.set(-0.4, COUNTER, BACK + 0.57); scene.add(g);
-  piece([g], "Crayons", "the big box", SPOTS.crayons);
+  piece([g], "Crayons", "the box of 64", SPOTS.crayons);
 }
 
 // back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
