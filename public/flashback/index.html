@@ -602,7 +602,6 @@ let dialLast = null;
 const bbEl = document.getElementById("boombox"), deck = boombox();
 let bbOut = null, analyser = null, sounding = [];  // sounding: the sources playing now (a side, the whir)
 const RATE = 22050, recordings = new Map(), recordingNow = new Set();  // side -> its songs' recorded loops
-let tapeError = null;  // why a side couldn't be recorded, shown on the deck until it works
 const makeNoise = ctx => { const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; };
 let liveNoise = null;
 function bbAudio() {  // the boombox's own output: everything through one gain and an analyser for the VU meters
@@ -639,10 +638,9 @@ async function recordSide(side) {
       loops.push(await off.startRendering());
     }
     recordings.set(side, loops);
-    tapeError = null;
-    tape.recorded();
+    tape.recorded(side);
   } catch (err) {
-    tapeError = `the tape won't play here: ${err.message}`;  // shown on the deck, not swallowed
+    tape.failed(side, `side ${side} won't play here: ${err.message}`);  // shown on the deck while that side faces out
     console.error(err);
   } finally { recordingNow.delete(side); }
 }
@@ -702,8 +700,8 @@ function drawBoombox(t, dt) {
   bbEl.querySelector(".counter").textContent = String(Math.floor(st.pos[st.side]) % 1000).padStart(3, "0");
   spinAngle += (st.motion === "play" ? 120 : st.motion === "ff" ? 1400 : st.motion === "rew" ? -1400 : 0) * dt;
   for (const id of ["reelL", "reelR"]) { const r = bbEl.querySelector("#" + id), [x, y] = id === "reelL" ? [98, 98] : [162, 98]; r.setAttribute("transform", `translate(${x} ${y}) rotate(${spinAngle})`); }
-  bbEl.querySelector(".status").textContent = tapeError ?? (!st.power ? "off" : st.mode === "radio" ? "radio: coming soon" : !st.tapeIn ? `the tape is out: side ${st.side} faces you` :
-    tape.waiting ? "loading the tape..." :
+  bbEl.querySelector(".status").textContent = !st.power ? "off" : st.mode === "radio" ? "radio: coming soon" : !st.tapeIn ? `the tape is out: side ${st.side} faces you` :
+    tape.waiting ? "loading the tape..." : tape.error(st.side) ?? (
     np.sound === "song" ? `${np.song.title}` : np.sound === "wind" ? (st.motion === "ff" ? "fast-forwarding" : "rewinding") : np.sound === "hiss" ? "between songs" : st.motion === "stop" ? "stopped" : "");
   let rms = 0;
   if (analyser) { analyser.getFloatTimeDomainData(level); for (const v of level) rms += v * v; rms = Math.sqrt(rms / level.length); }

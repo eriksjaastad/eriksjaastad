@@ -144,16 +144,33 @@ test("player: PLAY on a side not yet recorded holds the tape where it is, then p
   let r = rig({ recorded: [] }); r.p.press("power"); r.p.press("ff"); r.go(1); r.p.press("play");
   assert.deepEqual(r.log.records, ["A"]); assert.equal(r.log.plays.length, 0); assert.equal(r.p.waiting, "A");
   r.go(5); assert.equal(r.deck.at(r.t).pos.A, WIND, "the tape doesn't run while it waits");
-  r.ready.add("A"); r.p.recorded();
+  r.ready.add("A"); r.p.recorded("A");
   assert.deepEqual(r.log.plays, [{ side: "A", at: 6, from: WIND }]); assert.equal(r.deck.at(r.t).motion, "play"); assert.equal(r.p.waiting, null);
   for (const k of ["stop", "ff", "eject", "radio", "power", "tape"]) {
     r = rig({ recorded: [] }); r.p.press("power"); r.p.press("play"); r.go(1); r.p.press(k);
     assert.equal(r.p.waiting, null, `${k} drops the hold`);
     if (k === "radio") r.p.press("tape");
-    r.ready.add("A"); r.p.recorded(); assert.equal(r.log.plays.length, 0, `${k}: nothing starts later`);
+    r.ready.add("A"); r.p.recorded("A"); assert.equal(r.log.plays.length, 0, `${k}: nothing starts later`);
   }
   r = rig({ recorded: [] }); r.p.press("power"); r.p.press("play"); r.p.press("play");
-  assert.equal(r.p.waiting, "A", "PLAY again while held keeps waiting"); r.ready.add("A"); r.p.recorded(); assert.equal(r.log.plays.length, 1);
+  assert.equal(r.p.waiting, "A", "PLAY again while held keeps waiting"); r.ready.add("A"); r.p.recorded("A"); assert.equal(r.log.plays.length, 1);
+});
+
+test("player: a recording failure stays with its side: it drops a hold for that side, never touches the other, and PLAY records it again", () => {
+  // A fails while PLAY waits for it, then B records fine: the hold is gone, A's error stays, B has none
+  let r = rig({ recorded: [] }); r.p.press("power"); r.p.press("play");
+  r.p.failed("A", "no A"); assert.equal(r.p.waiting, null); assert.equal(r.deck.at(r.t).motion, "stop");
+  r.ready.add("B"); r.p.recorded("B");
+  assert.equal(r.p.error("A"), "no A"); assert.equal(r.p.error("B"), null); assert.equal(r.log.plays.length, 0);
+  r.p.press("play"); assert.deepEqual(r.log.records, ["A", "A"]); assert.equal(r.p.error("A"), null, "trying again clears it");
+  r.ready.add("A"); r.p.recorded("A"); assert.equal(r.log.plays.length, 1);
+  // B fails while A is playing: A plays on with no error, B keeps its own, and a late recorded("B") starts nothing
+  r = rig({ recorded: ["A"] }); r.p.press("power"); r.p.press("play"); r.go(2);
+  const cancels = r.log.cancels.length; r.p.failed("B", "no B"); r.p.recorded("B");
+  assert.equal(r.p.error("A"), null); assert.equal(r.log.plays.length, 1); assert.equal(r.log.cancels.length, cancels); assert.equal(r.deck.at(r.t).motion, "play");
+  r = rig({ recorded: [] }); r.p.press("power"); r.p.press("play"); r.ready.add("B"); r.p.recorded("B");
+  assert.equal(r.p.waiting, "A", "B finishing doesn't drop a hold for A");
+  r = rig({ recorded: ["A"] }); r.p.failed("B", "no B"); assert.equal(r.p.error("B"), "no B"); assert.equal(r.p.error("A"), null);
 });
 
 test("player: a key that changes nothing keeps the sound; stop, winding, eject, radio and power off cancel it", () => {

@@ -70,23 +70,26 @@ export function boombox() {
 // (motion, side, tape in/out) cancels what is sounding and starts again from that instant, using the same time and
 // position the deck used; a key that changes nothing (PLAY while playing) leaves the sound alone. PLAY on a side not recorded yet holds the
 // tape where it is (it doesn't run silently) until the recording is ready, then plays from exactly there; any other
-// key meanwhile drops the hold. `out` is the page's audio:
+// key meanwhile drops the hold. A side whose recording fails keeps its own error (the other side is unaffected) and
+// drops a hold for it; PLAY on it again records it again. `out` is the page's audio:
 //   now() audio-clock seconds · ready(side) is that side recorded yet · record(side) start recording it (the page
-//   calls player.recorded() when done) · play(side, at, from) start the side at audio time `at` from tape position
-//   `from` · wind(at, until) the whir of winding between two audio times · cancel() stop everything sounding
+//   calls player.recorded(side) when done, or player.failed(side, why)) · play(side, at, from) start the side at
+//   audio time `at` from tape position `from` · wind(at, until) the whir of winding between two audio times · cancel() stop everything sounding
 export function player(deck, out) {
   let waiting = null;  // the side PLAY is held for while it's recorded
+  const errors = { A: null, B: null };  // why each side couldn't be recorded, until it is
   function start(t) {
     const st = deck.at(t), side = st.side, pos = st.pos[side];
     if (st.motion === "play") {
       if (out.ready(side)) out.play(side, t, pos);
-      else { waiting = side; deck.press("stop", t); out.record(side); }
+      else { waiting = side; errors[side] = null; deck.press("stop", t); out.record(side); }
     }
     else if (st.motion === "ff") out.wind(t, t + (sideLength(side) - pos) / WIND);
     else if (st.motion === "rew") out.wind(t, t + pos / WIND);
   }
   return {
     get waiting() { return waiting; },
+    error: side => errors[side],
     press(key) {
       if (key !== "play") waiting = null;  // any other key drops a held PLAY
       const t = out.now(), before = deck.at(t);
@@ -98,14 +101,16 @@ export function player(deck, out) {
       start(t);
     },
     // a side finished recording: if PLAY is held for it, play from where the tape is held
-    recorded() {
-      const t = out.now();
-      if (waiting === null || !out.ready(waiting)) return;
-      const side = waiting, st = deck.at(t);
+    recorded(side) {
+      errors[side] = null;
+      if (waiting !== side || !out.ready(side)) return;
+      const t = out.now(), st = deck.at(t);
       waiting = null;
       if (st.side !== side || !st.tapeIn) return;  // (keys that change these drop the hold anyway)
       deck.press("play", t);  // needs power and tape mode, as ever; if they're gone, start() finds nothing playing
       start(t);
     },
+    // a side couldn't be recorded: keep why for that side, and stop holding PLAY for it
+    failed(side, why) { errors[side] = why; if (waiting === side) waiting = null; },
   };
 }
