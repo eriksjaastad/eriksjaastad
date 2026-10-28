@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { ROBOT, THINGS, pose, reach, framing, turner, inHands, TIP, TAP } from "../public/flashback/toys.js";
+import { ROBOT, THINGS, pose, reach, framing, geometry, turner, inHands, TIP, TAP } from "../public/flashback/toys.js";
 import { COUNTER, DOORS_FROM } from "../public/flashback/cabin.js";
 
 const ALL = Object.values(THINGS).flatMap(t => t.parts);
@@ -29,6 +29,7 @@ test("things: each part named once per thing; on the counter, in either form or 
 });
 
 test("things: held in your hands, every corner of every part, in any pose and turned any way, stays in the camera's view", () => {
+  // the corners of each part's box, which holds every vertex the page draws for it (a cylinder sits inside its box)
   const corners = p => [-1, 1].flatMap(a => [-1, 1].flatMap(b => [-1, 1].map(c => [a * p.size[0] / 2, b * p.size[1] / 2, c * p.size[2] / 2])));
   const rot = ([x, y, z], [rx, ry, rz]) => {  // three.js's XYZ Euler order: z first, then y, then x
     [x, y] = [x * Math.cos(rz) - y * Math.sin(rz), x * Math.sin(rz) + y * Math.cos(rz)];
@@ -50,6 +51,14 @@ test("things: held in your hands, every corner of every part, in any pose and tu
       }
       return true;
     }), { numRuns: 300 });
+  }
+});
+
+test("things: every cylinder is drawn inside its box, so the box's corners bound what's on screen", () => {
+  for (const p of Object.values(THINGS).flatMap(t => t.parts)) {
+    const [kind, args] = geometry(p);
+    if (kind === "Box") assert.deepEqual(args, p.size);
+    else { assert.equal(p.size[0], p.size[2], `${p.name} is round`); assert.equal(2 * args[0], p.size[0]); assert.equal(args[0], args[1]); assert.equal(args[2], p.size[1]); }
   }
 });
 

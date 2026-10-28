@@ -4,7 +4,8 @@
 // towards +z), and each part has two poses, a and b, as [x, y, z, rx, ry, rz] in metres and radians; tapping the
 // thing in your hands moves it from one to the other (the robot from truck to robot, the flip phone from shut to
 // open). Each rotation turns about one axis. A part with `from` is drawn that far from its position, so it turns
-// about its position like a hinge (the flip phone's lid).
+// about its position like a hinge (the flip phone's lid). A part's size is its full width, height and depth before
+// it turns; a wheel or rod is a cylinder standing on end, so its size is diameter, length, diameter.
 const flat = (x, y, z) => [x, y, z, 0, 0, 0];
 const same = (part, at) => ({ ...part, a: at, b: at });
 export const ROBOT = [
@@ -17,10 +18,10 @@ export const ROBOT = [
   { name: "armL", shape: "box", size: [0.016, 0.05, 0.018], colour: "#c8202a", a: [-0.02, 0.012, -0.002, -Math.PI / 2, 0, 0], b: [-0.038, 0.1, 0, 0, 0, 0.12] },
   { name: "armR", shape: "box", size: [0.016, 0.05, 0.018], colour: "#c8202a", a: [0.02, 0.012, -0.002, -Math.PI / 2, 0, 0], b: [0.038, 0.1, 0, 0, 0, -0.12] },
   { name: "head", shape: "box", size: [0.018, 0.02, 0.018], colour: "#2456c8", a: flat(0, 0.03, 0.005), b: flat(0, 0.14, 0) },
-  { name: "stackL", shape: "rod", size: [0.004, 0.03, 0.004], colour: "#c9ccd2", a: flat(-0.024, 0.06, 0.006), b: flat(-0.024, 0.14, -0.012) },
-  { name: "stackR", shape: "rod", size: [0.004, 0.03, 0.004], colour: "#c9ccd2", a: flat(0.024, 0.06, 0.006), b: flat(0.024, 0.14, -0.012) },
+  { name: "stackL", shape: "rod", size: [0.008, 0.03, 0.008], colour: "#c9ccd2", a: flat(-0.024, 0.06, 0.006), b: flat(-0.024, 0.14, -0.012) },
+  { name: "stackR", shape: "rod", size: [0.008, 0.03, 0.008], colour: "#c9ccd2", a: flat(0.024, 0.06, 0.006), b: flat(0.024, 0.14, -0.012) },
   ...[[-1, 0.02], [1, 0.02], [-1, -0.075], [1, -0.075]].map(([s, z], i) => ({
-    name: `wheel${i}`, shape: "wheel", size: [0.009, 0.008, 0.009], colour: "#1b1b1d",
+    name: `wheel${i}`, shape: "wheel", size: [0.018, 0.008, 0.018], colour: "#1b1b1d",
     a: [s * 0.03, 0.009, z, 0, 0, Math.PI / 2], b: [s * 0.028, i < 2 ? 0.05 : 0.02, 0, 0, 0, Math.PI / 2],
   })),
 ];
@@ -29,7 +30,7 @@ export const ROBOT = [
 const FLIP = [
   same({ name: "base", shape: "box", size: [0.053, 0.007, 0.098], colour: "#aeb3bb" }, flat(0, 0.0035, 0)),
   same({ name: "keys", shape: "box", size: [0.044, 0.0006, 0.06], colour: "#6fb7ff" }, flat(0, 0.0073, 0.012)),
-  same({ name: "hinge", shape: "wheel", size: [0.0045, 0.05, 0.0045], colour: "#8d929b" }, [0, 0.007, -0.049, 0, 0, Math.PI / 2]),
+  same({ name: "hinge", shape: "wheel", size: [0.009, 0.05, 0.009], colour: "#8d929b" }, [0, 0.007, -0.049, 0, 0, Math.PI / 2]),
   { name: "lid", shape: "box", size: [0.053, 0.007, 0.098], colour: "#aeb3bb", from: [0, 0.0035, 0.049], a: flat(0, 0.007, -0.049), b: [0, 0.007, -0.049, -2.75, 0, 0] },
   { name: "screen", shape: "box", size: [0.04, 0.0006, 0.05], colour: "#2f6fd0", from: [0, -0.0004, 0.052], a: flat(0, 0.007, -0.049), b: [0, 0.007, -0.049, -2.75, 0, 0] },
   { name: "outer", shape: "box", size: [0.02, 0.0005, 0.02], colour: "#111318", from: [0, 0.0073, 0.075], a: flat(0, 0.007, -0.049), b: [0, 0.007, -0.049, -2.75, 0, 0] },
@@ -43,15 +44,15 @@ const BRICK = [
   same({ name: "nav", shape: "box", size: [0.026, 0.0015, 0.01], colour: "#c9ccd2" }, flat(0, 0.0215, 0.0)),
   ...Array.from({ length: 12 }, (_, i) => same({ name: `key${i}`, shape: "box", size: [0.01, 0.0015, 0.007], colour: "#c9ccd2" },
     flat(-0.013 + (i % 3) * 0.013, 0.0215, 0.016 + Math.floor(i / 3) * 0.011))),
-  same({ name: "antenna", shape: "rod", size: [0.004, 0.012, 0.004], colour: "#1a2238" }, [0.015, 0.012, -0.071, Math.PI / 2, 0, 0]),
+  same({ name: "antenna", shape: "rod", size: [0.008, 0.012, 0.008], colour: "#1a2238" }, [0.015, 0.012, -0.071, Math.PI / 2, 0, 0]),
 ];
 // the MP3 player that played discs the size of a quarter: the gold disc slides out of its side
 const MP3 = [
   same({ name: "body", shape: "box", size: [0.06, 0.016, 0.075], colour: "#c8ccd4" }, flat(0, 0.008, 0)),
   same({ name: "screen", shape: "box", size: [0.032, 0.0006, 0.016], colour: "#2b3a2e" }, flat(0, 0.0163, -0.02)),
-  ...[-0.014, 0, 0.014].map((x, i) => same({ name: `button${i}`, shape: "wheel", size: [0.004, 0.0016, 0.004], colour: "#6d7480" }, flat(x, 0.0166, 0.016))),
+  ...[-0.014, 0, 0.014].map((x, i) => same({ name: `button${i}`, shape: "wheel", size: [0.008, 0.0016, 0.008], colour: "#6d7480" }, flat(x, 0.0166, 0.016))),
   same({ name: "slot", shape: "box", size: [0.0012, 0.003, 0.036], colour: "#30343a" }, flat(0.0302, 0.008, 0.008)),
-  { name: "disc", shape: "wheel", size: [0.016, 0.0012, 0.016], colour: "#d4b25a", a: flat(0.012, 0.008, 0.008), b: flat(0.05, 0.008, 0.008) },
+  { name: "disc", shape: "wheel", size: [0.032, 0.0012, 0.032], colour: "#d4b25a", a: flat(0.012, 0.008, 0.008), b: flat(0.05, 0.008, 0.008) },
 ];
 // each thing: its caption, what tapping it does, its parts, and where it rests on the counter (x, turned)
 export const THINGS = {
@@ -66,6 +67,10 @@ export function pose(part, f) {
   const k = Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 0;
   return part.a.map((v, i) => (1 - k) * v + k * part.b[i]);  // exact at both ends
 }
+
+// What the page draws for a part: a three.js BoxGeometry or CylinderGeometry and its arguments (a cylinder's radius
+// at top and bottom, its length, and how many sides), each the size it says.
+export const geometry = p => p.shape === "box" ? ["Box", p.size] : ["Cylinder", [p.size[0] / 2, p.size[0] / 2, p.size[1], p.shape === "wheel" ? 18 : 8]];
 
 // The furthest any point of a part can be from its position: how far it's drawn from there, plus half its diagonal.
 export const reach = p => Math.hypot(...(p.from ?? [0, 0, 0])) + Math.hypot(...p.size) / 2;

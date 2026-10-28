@@ -115,7 +115,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { THINGS, pose, framing, inHands } from "./toys.js";
+import { THINGS, pose, framing, geometry, inHands } from "./toys.js";
 import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
@@ -339,7 +339,7 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
 const build = name => {  // one of the things, from its parts; returns the group and its meshes by part
   const g = new THREE.Group(), meshes = {};
   for (const p of THINGS[name].parts) {
-    const [a, b, c] = p.size, geo = p.shape === "box" ? new THREE.BoxGeometry(a, b, c) : new THREE.CylinderGeometry(a, a, b, p.shape === "wheel" ? 18 : 8);
+    const [kind, args] = geometry(p), geo = new THREE[`${kind}Geometry`](...args);
     if (p.from) geo.translate(...p.from);
     const shiny = p.shape === "rod" || p.colour === "#aeb3bb" || p.colour === "#c8ccd4";
     const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.colour, roughness: shiny ? 0.35 : 0.5, metalness: shiny ? 0.6 : 0 }));
