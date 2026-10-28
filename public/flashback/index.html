@@ -104,7 +104,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
+import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
 
@@ -266,36 +266,46 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   scene.add(s, s.target);
 }
 
-// on the countertop: the biggest box of crayons, open, standing in tiers. Nearly every crayon is still sharp; only
-// the few in this site's colours are worn down.
+// on the countertop: the biggest box of crayons, open, like the classic yellow carton (cabin.js lays out the crayons)
 {
-  const SITE = ["#ff6a00", "#ffc46b", "#ff8a65", "#ece7dc", "#9a968d", "#2e3039", "#15161b"];
-  const ROWS = 6, PER = 25, R = 0.0042, worn = new Set([9, 33, 52, 70, 96, 118, 141]);  // which crayons (of 150)
-  const g = new THREE.Group(), green = new THREE.MeshStandardMaterial({ color: "#2f8f3a", roughness: 0.7 });
-  const yellow = new THREE.MeshStandardMaterial({ color: "#f6c81c", roughness: 0.7 });
+  // the carton's print, drawn once: yellow with green chevrons rising from the bottom corners and the count
+  const print = (w, h, words) => {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = Math.round(512 * h / w); const x = cv.getContext("2d"), H = cv.height;
+    x.fillStyle = "#f7b81e"; x.fillRect(0, 0, 512, H); x.fillStyle = "#1f8a3c";
+    for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H); x.lineTo(256 - s * 256, H * 0.25); x.lineTo(256 - s * 90, H); x.fill(); }
+    x.strokeStyle = "#1f8a3c"; x.lineWidth = 6; for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H * 0.12); x.lineTo(256 - s * 70, H); x.stroke(); }
+    x.fillStyle = "#145c28"; x.textAlign = "center"; x.font = `bold ${Math.round(H * 0.3)}px sans-serif`; x.fillText(words[0], 256, H * 0.42);
+    if (words[1]) { x.font = `bold ${Math.round(H * 0.17)}px sans-serif`; x.fillText(words[1], 256, H * 0.66); }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 });
+  };
+  const g = new THREE.Group(), green = new THREE.MeshStandardMaterial({ color: "#1f8a3c", roughness: 0.8 });
+  const card = new THREE.MeshStandardMaterial({ color: "#b89a6e", roughness: 0.95 });  // the plain cardboard inside
   const box = (w, h, d, mat, x, y, z) => { const m = mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-  box(0.23, 0.07, 0.006, yellow, 0, 0.035, 0.057);    // front, low, so the tiers show
-  box(0.23, 0.11, 0.006, green, 0, 0.055, -0.057);    // back
-  for (const x of [-0.115, 0.115]) box(0.006, 0.11, 0.12, green, x, 0.055, 0);
-  box(0.23, 0.004, 0.12, green, 0, 0.002, 0);
-  const lid = new THREE.Group(); lid.position.set(0, 0.11, -0.06); lid.rotation.x = -1.75; g.add(lid);  // flipped open, leaning back a little
-  lid.add(mesh(new THREE.BoxGeometry(0.23, 0.004, 0.12), yellow, 0, 0, 0.06));
-  lid.add(mesh(new THREE.BoxGeometry(0.16, 0.001, 0.05), green, 0, -0.003, 0.06));  // the label
-  const n = ROWS * PER, bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(R, R, 0.075, 8), new THREE.MeshStandardMaterial({ roughness: 0.6 }), n);
-  const tips = new THREE.InstancedMesh(new THREE.ConeGeometry(R, 0.016, 8), new THREE.MeshStandardMaterial({ roughness: 0.6 }), n);
-  const m4 = new THREE.Matrix4(), c = new THREE.Color();
-  let site = 0;
-  for (let i = 0; i < n; i++) {
-    const row = Math.floor(i / PER), x = -0.105 + (i % PER) * 0.00875, z = 0.042 - row * 0.017, y = 0.03 + row * 0.011;  // back rows stand higher
-    const isWorn = worn.has(i);
-    c.set(isWorn ? SITE[site++] : `hsl(${(i * 137.5) % 360}, ${55 + (i * 7) % 40}%, ${38 + (i * 11) % 30}%)`);
-    bodies.setMatrixAt(i, m4.makeTranslation(x, y, z)); bodies.setColorAt(i, c);
-    // a sharp tip is a full cone; a worn one is a short rounded stub
-    tips.setMatrixAt(i, m4.makeTranslation(x, y + 0.0375 + (isWorn ? 0.002 : 0.008), z).multiply(new THREE.Matrix4().makeScale(isWorn ? 1.15 : 1, isWorn ? 0.25 : 1, isWorn ? 1.15 : 1)));
+  const { w, d, front, back, flap, across } = BOX, T = 0.004;
+  box(w, front, T, [card, card, card, card, print(w, front, ["CRAYONS", "152 COLORS"]), card], 0, front / 2, d / 2);
+  box(w, flap, T, [card, card, card, card, print(w, flap, ["152", ""]), card], 0, flap / 2, -d / 2).rotation.x = -0.06;  // back and its flap
+  for (const x of [-w / 2, w / 2]) box(T, back, d, green, x, back / 2, 0);
+  box(w, T, d, card, 0, T / 2, 0);
+  box(w - T, T, d - T, card, 0, 0.055, -0.035).scale.z = 0.45;      // the shelf the back tier stands on
+  box(w - T, 0.085, T, card, 0, 0.0425, 0.004);                    // the wall between the tiers
+  for (let c = 1; c < across; c++) for (const [z, h] of [[0.028, 0.06], [-0.032, 0.09]]) box(T, h, 0.05, card, -w / 2 + c * w / across, h / 2, z);
+  const list = crayons(), m4 = new THREE.Matrix4(), c = new THREE.Color();
+  // a wrapper: the crayon's colour with two dark bands, as a texture the instance colour tints
+  const wrap = document.createElement("canvas"); wrap.width = 4; wrap.height = 64; const wx = wrap.getContext("2d");
+  wx.fillStyle = "#fff"; wx.fillRect(0, 0, 4, 64); wx.fillStyle = "#222"; wx.fillRect(0, 6, 4, 5); wx.fillRect(0, 53, 4, 5);
+  const wrapTex = new THREE.CanvasTexture(wrap); wrapTex.colorSpace = THREE.SRGBColorSpace;
+  const bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r, CRAYON.r, CRAYON.body, 10), new THREE.MeshStandardMaterial({ map: wrapTex, roughness: 0.7 }), list.length);
+  const tips = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r * 0.35, CRAYON.r, CRAYON.tip, 10), new THREE.MeshStandardMaterial({ roughness: 0.45 }), list.length);
+  list.forEach((k, i) => {
+    c.set(k.colour);
+    bodies.setMatrixAt(i, m4.makeTranslation(k.x, k.y, k.z)); bodies.setColorAt(i, c);
+    // a sharp tip is the full cone with a small flat point; a worn one is squashed into a short, round stub
+    const len = k.worn ? CRAYON.stub : CRAYON.tip;
+    tips.setMatrixAt(i, m4.makeTranslation(k.x, k.y + CRAYON.body / 2 + len / 2, k.z).multiply(new THREE.Matrix4().makeScale(1, len / CRAYON.tip, 1)));
     tips.setColorAt(i, c);
-  }
+  });
   bodies.castShadow = true; g.add(bodies, tips);
-  g.position.set(-0.45, 1.0, BACK + 0.56); g.rotation.y = 0.12; scene.add(g);
+  g.position.set(-0.4, COUNTER, BACK + 0.57); scene.add(g);
   piece([g], "Crayons", "the big box", SPOTS.crayons);
 }
 
