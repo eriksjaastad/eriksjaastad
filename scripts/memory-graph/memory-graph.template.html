@@ -198,9 +198,8 @@ const TYPE_STYLE = {
   task:     { color: "#9a7a68", word: "task" },
   decision: { color: "#d4906c", word: "decision" },
   lesson:   { color: "#bba57c", word: "lesson" },
-  person:   { color: "#58525c", word: "person (name removed)" },
 };
-const FULL_WORD = { artifact: "artifacts", task: "tasks", decision: "decisions", lesson: "lessons", person: "people", concept: "tools and ideas", project: "projects" };
+const FULL_WORD = { artifact: "artifacts", task: "tasks", decision: "decisions", lesson: "lessons", concept: "tools and ideas", project: "projects" };
 
 const N = D.nodes.length;
 const pos = new Float32Array(N * 3);
@@ -212,7 +211,7 @@ const projIdx = [...Array(N).keys()].filter(i => typeOf[i] === "project").sort((
 
 document.getElementById("sub").textContent =
   `${N.toLocaleString()} of ${D.full.nodes.toLocaleString()} memories · real links, names removed`;
-document.getElementById("legend").innerHTML = ["project", "concept", "decision", "task", "artifact", "person"].map(t =>
+document.getElementById("legend").innerHTML = ["project", "concept", "decision", "task", "artifact"].map(t =>
   `<div><i style="background:${TYPE_STYLE[t].color}"></i>${(D.full.byType[t] || 0).toLocaleString().padStart(6, " ")} ${FULL_WORD[t]}</div>`).join("") +
   `<div style="margin-top:4px">full graph: ${D.full.nodes.toLocaleString()} nodes · ${D.full.edges.toLocaleString()} links</div>`;
 
@@ -246,10 +245,10 @@ composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
 // Everything but projects: one instanced batch of small orbs, one shader, a different look per kind
-// (tool: pale banded giant, decision: copper pearl, task: plasma globe, file: speckled stone,
-// person: smoked glass). One draw call for all of them.
+// (tool: pale banded giant, decision: copper pearl, task: plasma globe, file: speckled stone).
+// One draw call for all of them.
 const fillIdx = [...Array(N).keys()].filter(i => typeOf[i] !== "project");
-const ORB_KINDS = ["concept", "decision", "task", "artifact", "person"];
+const ORB_KINDS = ["concept", "decision", "task", "artifact"];
 const geo = new THREE.SphereGeometry(1, 16, 12);
 geo.setAttribute("aKind", new THREE.InstancedBufferAttribute(new Float32Array(fillIdx.map(i => Math.max(0, ORB_KINDS.indexOf(typeOf[i])))), 1));
 geo.setAttribute("aSeed", new THREE.InstancedBufferAttribute(new Float32Array(fillIdx.map(() => Math.random() * 50)), 1));
@@ -284,12 +283,8 @@ const mat = new THREE.ShaderMaterial({
       } else if (vKind < 2.5) {  // task: small plasma globe
         float fil = pow(1. - abs(fbm(P*3. + vec3(0., uTime*.25, uTime*.1))*2. - 1.), 10.);
         col = vec3(.09,.05,.04) + vec3(.85,.5,.3)*fil + vec3(.6,.42,.33)*pow(1.-ndv,2.5)*.7 + pow(spec,60.)*.5;
-      } else if (vKind < 3.5) {  // file or thing: speckled stone
+      } else {                   // file or thing: speckled stone
         col = mix(vec3(.17,.16,.19), vec3(.32,.3,.34), noise(P*14.))*(.3 + .6*diff) + vec3(.6,.55,.6)*pow(1.-ndv,3.)*.22;
-      } else {                   // person: smoked glass with drifting haze
-        float haze = fbm(P*2.5 + vec3(uTime*.12, 0., -uTime*.08));
-        col = vec3(.07,.06,.08) + vec3(.42,.38,.46)*smoothstep(.45,.75,haze)*pow(ndv,1.5)
-            + vec3(.55,.5,.6)*pow(1.-ndv,2.2)*.6 + pow(spec,70.)*.6;
       }
       float fog = 1. - exp(-uFogDensity*uFogDensity*vDepth*vDepth);
       gl_FragColor = vec4(mix(col, uFogColor, fog), 1.);
