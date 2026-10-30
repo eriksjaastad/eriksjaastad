@@ -2,10 +2,10 @@
 
 // Room: x -4..4, z -4..4 (front door at +z, chest of drawers on the back wall). Standable floor is the walls
 // minus 0.5 m, and keep-out circles [x, z, r] round the chest (two, it's wide), the snowboard corner, and on the
-// left wall the phone table and its chair.
+// left wall the phone table and its chair, and on the right wall the boombox on its crate.
 export const CABIN = {
   minX: -3.5, maxX: 3.5, minZ: -3.5, maxZ: 3.5,
-  blockers: [[-0.4, -4, 0.95], [0.4, -4, 0.95], [3.2, -3.3, 1.0], [-3.55, -2.2, 0.85], [-3.3, -1.15, 0.7]],
+  blockers: [[-0.4, -4, 0.95], [0.4, -4, 0.95], [3.2, -3.3, 1.0], [-3.55, -2.2, 0.85], [-3.3, -1.15, 0.7], [3.6, 1.0, 0.75]],
 };
 
 export const START = { x: 0, z: 3, yaw: 0, pitch: -0.05 };
@@ -16,6 +16,7 @@ export const SPOTS = {
   snowboard: { stand: { x: 1.9, z: -2.1 }, look: { x: 3.6, y: 0.9, z: -3.7 } },
   rollerblades: { stand: { x: 1.6, z: -2.6 }, look: { x: 2.7, y: 0.1, z: -3.6 } },
   phone: { stand: { x: -2.1, z: -1.9 }, look: { x: -3.6, y: 0.8, z: -2.25 } },
+  boombox: { stand: { x: 2.2, z: 1.0 }, look: { x: 3.65, y: 0.6, z: 1.0 } },
   crayons: { stand: { x: -0.4, z: -2.95 }, look: { x: -0.4, y: 1.06, z: -3.43 } },
   counter: { stand: { x: 0.08, z: -2.95 }, look: { x: 0.08, y: 1.0, z: -3.45 } },
 };
