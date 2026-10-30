@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { standable, walker, heading } from "../public/gallery/walk.js";
-import { CABIN, START, SPOTS, OPENABLE, hinges } from "../public/flashback/cabin.js";
+import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, DOORS_FROM, BOX, CRAYON, SITE_COLOURS, crayons } from "../public/flashback/cabin.js";
 
 // the furniture's footprint (index.html): chest x -0.75..0.75 to z -3.4, rollerblades from x 2.4, snowboard in the corner, phone table + chair on the left wall
 const inside = (x, z) => (Math.abs(x) < 0.75 && z < -3.35) || (x > 2.35 && z < -3.25) || (x < -2.95 && z > -2.7 && z < -0.75) || (x > 3.15 && z > 0.65 && z < 1.35);  // ... the phone table and chair, the boombox crate
@@ -58,4 +58,18 @@ test("hinges: any taps and frame gaps keep every part between shut and open, tur
       prev = f;
     }
   }), { numRuns: 500 });
+});
+
+test("crayons: 64 in the box, all sharp but one worn stub per site colour, and nothing reaches the cabinet doors' swing", () => {
+  const list = crayons();
+  assert.equal(list.length, 64);
+  assert.deepEqual(list.filter(k => k.worn).map(k => k.colour), SITE_COLOURS);
+  assert.ok(list.filter(k => !k.worn).every(k => !SITE_COLOURS.includes(k.colour)));
+  for (const k of list) {
+    assert.ok(Math.abs(k.x) + CRAYON.r <= BOX.w / 2 && Math.abs(k.z) + CRAYON.r <= BOX.d / 2, "inside the box");
+    assert.ok(COUNTER + Math.max(k.top, BOX.flap) < DOORS_FROM, "under the doors as they swing open and shut");
+    if (!k.worn) assert.ok(k.top > Math.max(...list.filter(o => o.worn && o.y === k.y).map(o => o.top), -Infinity), "worn ones are shorter");
+  }
+  for (const [i, a] of list.entries()) for (const b of list.slice(i + 1))
+    if (Math.abs(a.y - b.y) < CRAYON.body) assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= 2 * CRAYON.r, "no two crayons side by side overlap");
 });

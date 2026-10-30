@@ -87,6 +87,12 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 #boombox .close { margin-top: 10px; }
 @media (max-width: 640px) { #boombox .body { grid-template-columns: 1fr 1fr; } #boombox .mid { grid-column: 1 / -1; grid-row: 1; } }
 #dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+/* holding a thing from the counter: it fills the screen; drag to turn it over, tap it (or the button) to change it */
+#hold .wrap { display: grid; justify-items: center; gap: 10px; }
+#hold canvas { width: min(92vw, 70dvh, 560px); height: min(92vw, 70dvh, 560px); touch-action: none; cursor: grab; display: block; }
+#hold .note { font: 13px var(--mono); color: #ffc46b; } #hold nav { display: flex; gap: 10px; }
+#hold button { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+#hold button:hover { border-color: var(--neon); color: var(--neon); }
 @media (max-width: 700px) { .page { padding: 16px; gap: 10px; } }
 </style>
 <div id="stage"></div>
@@ -142,6 +148,11 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
   </div>
   <button class="close">Close</button>
 </div></dialog>
+<dialog id="hold" aria-label="In your hands"><div class="wrap">
+  <canvas></canvas>
+  <div class="note"></div>
+  <nav><button class="change"></button><button class="close">Put it back</button></nav>
+</div></dialog>
 <dialog id="photo" aria-label="Photo"><figure><img alt=""><figcaption></figcaption><button class="close">Back to the album</button></figure></dialog>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -150,7 +161,8 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 import * as THREE from "three";
 import { walker } from "../gallery/walk.js";
 import { walkThrough } from "../gallery/room.js";
-import { CABIN, START, SPOTS, OPENABLE, hinges } from "./cabin.js";
+import { THINGS, pose, framing, geometry, inHands } from "./toys.js";
+import { CABIN, START, SPOTS, OPENABLE, hinges, COUNTER, BOX, CRAYON, crayons } from "./cabin.js";
 import { BOOKS, pager } from "./albums.js";
 import { dialer, DIGITS, restAngle, STOP, lineFor, placeCall } from "./dial.js";
 import { boombox, player, TAPE, GAP } from "./boombox.js";
@@ -312,6 +324,86 @@ const parts = {};  // OPENABLE name -> the drawer or door hinge group that moves
   const s = new THREE.SpotLight("#ffd9a8", 14, 6, 0.5, 0.6, 1.4);
   s.position.set(0, H - 0.1, BACK + 2); s.target.position.set(0, 1.2, BACK + 0.3); s.castShadow = true; s.shadow.mapSize.set(512, 512);
   scene.add(s, s.target);
+}
+
+// on the countertop: the classic box of 64 crayons, open (cabin.js lays out the crayons)
+{
+  // the carton's print, drawn once: yellow with green chevrons from the bottom corners, and either the name or, on
+  // the flap, the count and a window of crayons
+  const print = (w, h, flap) => {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = Math.round(512 * h / w); const x = cv.getContext("2d"), H = cv.height;
+    x.fillStyle = "#f5b316"; x.fillRect(0, 0, 512, H); x.fillStyle = "#1f8a3c";
+    if (!flap) for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H); x.lineTo(256 - s * 256, H * 0.2); x.lineTo(256 - s * 110, H); x.fill(); }
+    x.strokeStyle = "#1f8a3c"; x.lineWidth = 7; for (const s of [1, -1]) { x.beginPath(); x.moveTo(256 - s * 256, H * (flap ? 0.55 : 0.08)); x.lineTo(256 - s * (flap ? 220 : 90), H); x.stroke(); }
+    x.fillStyle = "#145c28"; x.textAlign = "center";
+    if (flap) {
+      x.font = `bold ${Math.round(H * 0.32)}px sans-serif`; x.fillText("64", 70, H * 0.4);
+      x.save(); x.beginPath(); x.ellipse(290, H * 0.38, 170, H * 0.3, 0, 0, Math.PI * 2); x.clip(); x.fillStyle = "#222"; x.fillRect(120, 0, 340, H);
+      ["#2a7fd4", "#1f9b5a", "#7cc242", "#f2a12e", "#e5532d", "#d42f5a", "#b04ab8", "#8a5fd0"].forEach((c, k) => {
+        x.fillStyle = c; x.fillRect(140 + k * 38, H * 0.2, 32, H * 0.6); x.beginPath(); x.moveTo(140 + k * 38, H * 0.2); x.lineTo(156 + k * 38, H * 0.06); x.lineTo(172 + k * 38, H * 0.2); x.fill();
+      });
+      x.restore();
+    } else {
+      x.font = `bold ${Math.round(H * 0.24)}px sans-serif`; x.fillText("CRAYONS", 256, H * 0.4);
+      x.font = `bold ${Math.round(H * 0.11)}px sans-serif`; x.fillStyle = "#c62828"; x.fillText("64 BRILLIANT COLORS", 256, H * 0.58);
+    }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 });
+  };
+  const g = new THREE.Group(), green = new THREE.MeshStandardMaterial({ color: "#1f8a3c", roughness: 0.8 });
+  const card = new THREE.MeshStandardMaterial({ color: "#b39b78", roughness: 0.95 });  // the plain cardboard inside
+  const box = (w, h, d, mat, x, y, z) => { const m = mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  const { w, d, front, back, flap, shelf } = BOX, T = 0.002;
+  box(w, front, T, [card, card, card, card, print(w, front, false), card], 0, front / 2, d / 2);
+  box(w, back, T, card, 0, back / 2, -d / 2);                                                         // the back
+  box(w, flap - back, T, [card, card, card, card, print(w, flap - back, true), card], 0, (back + flap) / 2, -d / 2);  // its flap, the open lid
+  for (const x of [-w / 2, w / 2]) box(T, back, d, green, x, back / 2, 0);
+  box(w, T, d, card, 0, T / 2, 0);
+  box(w - T, shelf, d / 2, card, 0, shelf / 2, -d / 4);           // the raised floor of the back tier
+  box(w - T, 0.09, T, card, 0, 0.045, 0.0035);                     // the wall between the tiers
+  box(T, 0.082, d / 2, card, 0, 0.041, d / 4); box(T, 0.12, d / 2, card, 0, 0.06, -d / 4);  // between the compartments
+  const list = crayons(), m4 = new THREE.Matrix4(), c = new THREE.Color();
+  // a wrapper: the crayon's colour with two dark bands near the top, as a texture the instance colour tints
+  const wrap = document.createElement("canvas"); wrap.width = 4; wrap.height = 64; const wx = wrap.getContext("2d");
+  wx.fillStyle = "#fff"; wx.fillRect(0, 0, 4, 64); wx.fillStyle = "#222"; wx.fillRect(0, 3, 4, 3); wx.fillRect(0, 9, 4, 2);
+  const wrapTex = new THREE.CanvasTexture(wrap); wrapTex.colorSpace = THREE.SRGBColorSpace;
+  const bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r, CRAYON.r, CRAYON.body, 12), new THREE.MeshStandardMaterial({ map: wrapTex, roughness: 0.7 }), list.length);
+  const tips = new THREE.InstancedMesh(new THREE.CylinderGeometry(CRAYON.r * 0.4, CRAYON.r, CRAYON.tip, 12), new THREE.MeshStandardMaterial({ roughness: 0.45 }), list.length);
+  list.forEach((k, i) => {
+    c.set(k.colour);
+    bodies.setMatrixAt(i, m4.makeTranslation(k.x, k.y, k.z)); bodies.setColorAt(i, c);
+    // a sharp tip is the full cone with a small flat point; a worn one is squashed into a short, round stub
+    const len = k.worn ? CRAYON.stub : CRAYON.tip;
+    tips.setMatrixAt(i, m4.makeTranslation(k.x, k.y + CRAYON.body / 2 + len / 2, k.z).multiply(new THREE.Matrix4().makeScale(1, len / CRAYON.tip, 1)));
+    tips.setColorAt(i, c);
+  });
+  bodies.castShadow = true; g.add(bodies, tips);
+  g.position.set(-0.4, COUNTER, BACK + 0.57); scene.add(g);
+  piece([g], "Crayons", "the box of 64", SPOTS.crayons);
+}
+
+// on the countertop, beside the crayons: the brick, the flip phone, the MP3 player and the robot (toys.js). Tap one
+// to walk up, again to pick it up; it changes the same in your hands and on the counter, so it goes back the way you
+// left it.
+const build = name => {  // one of the things, from its parts; returns the group and its meshes by part
+  const g = new THREE.Group(), meshes = {};
+  for (const p of THINGS[name].parts) {
+    const [kind, args] = geometry(p), geo = new THREE[`${kind}Geometry`](...args);
+    if (p.from) geo.translate(...p.from);
+    const shiny = p.shape === "rod" || p.colour === "#aeb3bb" || p.colour === "#c8ccd4";
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.colour, roughness: shiny ? 0.35 : 0.5, metalness: shiny ? 0.6 : 0 }));
+    m.castShadow = true; g.add(m); meshes[p.name] = m;
+  }
+  return { name, g, meshes };
+};
+const shape = ({ name, meshes }, f) => {
+  for (const p of THINGS[name].parts) { const [x, y, z, rx, ry, rz] = pose(p, f); meshes[p.name].position.set(x, y, z); meshes[p.name].rotation.set(rx, ry, rz); }
+};
+const change = hinges(Object.keys(THINGS)), onCounter = {};
+for (const [name, t] of Object.entries(THINGS)) {
+  const it = onCounter[name] = build(name);
+  it.g.name = `thing:${name}`; it.g.position.set(t.at[0], COUNTER, BACK + 0.55); it.g.rotation.y = t.at[1];
+  scene.add(it.g); shape(it, 0);
+  piece([it.g], t.title, t.note, SPOTS.counter);
 }
 
 // back right corner: a '90s snowboard leaning on the wall and a pair of rollerblades on the floor
@@ -512,7 +604,7 @@ photoEl.addEventListener("close", keepFocus);  // the browser returns focus to t
 // while reading, the walker's window listener never sees keydown (capture runs first); Escape still closes the top
 // dialog, which is the browser's default action. Arrows turn the pages when the book is on top.
 document.addEventListener("keydown", e => {
-  if (dialEl.open || bbEl.open) { e.stopPropagation(); return; }  // the walker doesn't see keys while you're at the phone or the boombox
+  if (dialEl.open || bbEl.open || holdEl.open) { e.stopPropagation(); return; }  // the walker doesn't see keys at the phone, the boombox or while you're holding something
   if (!reading) return;
   e.stopPropagation();
   if (!photoEl.open && e.key === "ArrowRight") turn(1);
@@ -719,23 +811,53 @@ let bbLast = null;
   if (bbEl.open) drawBoombox(audio ? audio.currentTime : 0, Math.min(dt, 0.1));
   requestAnimationFrame(run);
 })(performance.now());
+// ---------- holding a thing: its own small scene, drawn only while it's open; toys.js turns it in your hands ----------
+const holdEl = document.getElementById("hold"), holdCanvas = holdEl.querySelector("canvas");
+const holdScene = new THREE.Scene(), holdCam = new THREE.PerspectiveCamera(30, 1, 0.01, 4);
+const pivot = new THREE.Group();  // it turns about its middle, not its feet
+holdScene.add(pivot, new THREE.HemisphereLight("#fff4e6", "#3a2a20", 1.6));
+const key = new THREE.DirectionalLight("#ffffff", 2.2); key.position.set(0.3, 0.5, 0.6); holdScene.add(key);
+let holdView = null, held = null;
+const heldCopies = {};  // name -> its copy for your hands, built the first time you pick it up
+const inHand = inHands(holdCanvas, () => change.toggle(held.name));
+function openHold(name) {
+  if (!holdView) { holdView = new THREE.WebGLRenderer({ canvas: holdCanvas, antialias: true, alpha: true }); holdView.setPixelRatio(Math.min(devicePixelRatio, 2)); }
+  const t = THINGS[name];
+  held = heldCopies[name] ??= build(name);
+  const { middle, distance } = framing(t.parts, holdCam.fov);
+  pivot.clear(); pivot.add(held.g); held.g.position.y = -middle; holdCam.position.set(0, 0, distance); holdCam.lookAt(0, 0, 0);
+  holdEl.setAttribute("aria-label", `The ${t.title.toLowerCase()}, in your hands`);
+  holdCanvas.setAttribute("aria-label", `The ${t.title.toLowerCase()}: drag to turn it over, tap it to ${t.verb.toLowerCase()}`);
+  holdEl.querySelector(".note").textContent = `drag to turn it over · tap it: ${t.verb.toLowerCase()}`;
+  holdEl.querySelector(".change").textContent = t.verb;
+  inHand.reset(); holdEl.showModal();
+  const size = holdCanvas.clientWidth; holdView.setSize(size, size, false);
+}
+holdEl.addEventListener("close", () => inHand.drop());  // a finger still down when it's put back changes nothing later
+addEventListener("blur", () => inHand.drop());
+holdEl.querySelector(".change").onclick = () => change.toggle(held.name);
+holdEl.querySelector(".close").onclick = () => holdEl.close();
+holdEl.addEventListener("click", e => { if (e.target === holdEl) holdEl.close(); });
 
 // ---------- walking: walk.js turns input into a pose, room.js wires the page to it ----------
 const open = hinges();
 let last = null;
 walkThrough({ renderer, scene, camera, me: walker(START, CABIN), pieces,
-  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial
-    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && !["phone", "notepad", "boombox"].includes(o.name)) o = o.parent;
-    if (o?.name === "boombox") bbEl.showModal();
+  onTap: hit => {  // an album or the scrapbook opens; a drawer or door (or its knob) flips; the phone or notepad, dial; the boombox; a thing on the counter, pick up
+    let o = hit; while (o && !(o.name in BOOKS) && !OPENABLE.includes(o.name) && !["phone", "notepad", "boombox"].includes(o.name) && !o.name.startsWith("thing:")) o = o.parent;
+    if (o?.name.startsWith("thing:")) openHold(o.name.slice(6));
+    else if (o?.name === "boombox") bbEl.showModal();
     else if (o?.name === "phone" || o?.name === "notepad") openDial();
     else if (o?.name in BOOKS) openBook(o.name); else if (o) open.toggle(o.name);
     return !!o;
   },
   onFrame: now => {
     motes.rotation.y = now * 0.00002; motes.position.y = Math.sin(now * 0.0004) * 0.05;
-    const f = open.step(last === null ? 0 : (now - last) / 1000); last = now;
+    const dt = last === null ? 0 : (now - last) / 1000, f = open.step(dt); last = now;
     for (const i of [0, 1, 2]) parts[`drawer${i}`].position.z = 0.285 + f[`drawer${i}`] * 0.36;
     parts.doorLeft.rotation.y = -f.doorLeft * 1.75; parts.doorRight.rotation.y = f.doorRight * 1.75;
+    const c = change.step(dt); for (const name in onCounter) shape(onCounter[name], c[name]);
+    if (holdEl.open) { shape(held, c[held.name]); pivot.rotation.set(inHand.pitch, inHand.yaw, 0); holdView.render(holdScene, holdCam); }
   } });
 </script>
 </html>

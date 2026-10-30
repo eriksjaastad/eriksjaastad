@@ -33,7 +33,7 @@ TOOLS["next.js"] = "Next.js"
 TOOLS["huggingface"] = "Hugging Face"
 TOOLS["postgresql"] = "Postgres"
 
-FILLER_TYPES = ["artifact", "task", "decision", "lesson", "person"]
+FILLER_TYPES = ["artifact", "task", "decision", "lesson"]
 TARGET = 2600
 PER_PROJECT = 70
 
@@ -73,17 +73,13 @@ for p, pid in proj_ids.items():
     chosen.update(nbrs[:PER_PROJECT])
 
 frontier = [i for i in chosen if i not in label]
-person_cap = TARGET // 5
-persons = sum(1 for i in chosen if nodes[i]["type"] == "person")
 while len(chosen) < TARGET and frontier:
     i = random.choice(frontier)
-    cands = [j for j in adj[i] if filler_ok(j) and j not in chosen
-             and (nodes[j]["type"] != "person" or persons < person_cap)]
+    cands = [j for j in adj[i] if filler_ok(j) and j not in chosen]
     if not cands:
         frontier.remove(i)
         continue
     j = random.choice(cands)
-    persons += nodes[j]["type"] == "person"
     chosen.add(j)
     frontier.append(j)
 
