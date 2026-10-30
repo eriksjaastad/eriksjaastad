@@ -7,11 +7,11 @@
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="description" content="Seven months turning a manual image review and cropping job into a Python pipeline: 313 commits, eight stages, used in real client work.">
+<meta name="description" content="Keeping visual judgment with the operator while automating repeated handling made larger image batches manageable: 128,200 source images in, 28,285 finished images out.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://eriksjaastad.com/case-studies/image-workflow/">
 <meta property="og:title" content="Image Workflow · Erik Sjaastad">
-<meta property="og:description" content="Seven months turning a manual image review and cropping job into a Python pipeline: 313 commits, eight stages, used in real client work.">
+<meta property="og:description" content="Keeping visual judgment with the operator while automating repeated handling made larger image batches manageable: 128,200 source images in, 28,285 finished images out.">
 <meta property="og:image" content="https://eriksjaastad.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* One case study: the /case-studies/ room, a jump-to nav, a readable column, and two small visuals built from the repo. */
+/* One case study: the /case-studies/ room, a jump-to nav, a readable column, and two annotated screenshots of the real tools. */
 :root {
   color-scheme: dark;
   --room: #15161b;
@@ -31,7 +31,6 @@
   --amber: #ffc46b;
   --line: #2e3039;
   --neon: #ff6a00;
-  --chart: #f0620a;  /* the neon, one step deeper so bars sit in the dark-surface lightness band (dataviz validator) */
   --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
@@ -74,106 +73,85 @@ section p, section li { color: var(--ink); max-width: 62ch; margin: 0; }
 section ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .hl { color: var(--amber); }
 .note { font-size: 15px; color: var(--ink-dim) !important; border-left: 2px solid var(--line); padding-left: 12px; }
-/* the pipeline: eight numbered stages, each sized by its code */
-.stages { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; list-style: none; padding: 0 !important; }
-.stages li { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; background: rgba(255,255,255,.02); }
-.stages b { font-size: 15px; font-weight: 600; } .stages b span { font: 11px var(--mono); color: var(--amber); margin-right: 6px; }
-.stages i { display: block; height: 4px; border-radius: 2px; background: var(--chart); }
-.stages small { font: 11px var(--mono); color: var(--ink-dim); }
-/* the commit chart: one series, so no legend; hover a week for its count; a table for the numbers */
+/* the screenshots: full column width, linked to the full-size image */
 figure { margin: 0; display: grid; gap: 8px; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; }
 figcaption { font: 12px var(--mono); color: var(--ink-dim); }
-.chart { position: relative; }
-.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart .grid { stroke: var(--line); stroke-width: 1; }
-.chart .axis { font: 10px var(--mono); fill: var(--ink-dim); }
-.chart .bar { fill: var(--chart); }
-.chart .hit { fill: transparent; cursor: default; }
-.chart .hit:hover + .bar { fill: var(--amber); }
-.tip { position: absolute; pointer-events: none; font: 12px var(--mono); background: var(--room-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; color: var(--ink); white-space: nowrap; transform: translate(-50%, -110%); }
-details summary { font: 12px var(--mono); color: var(--ink-dim); cursor: pointer; }
-details table { border-collapse: collapse; font: 12px var(--mono); margin-top: 8px; }
-details td, details th { border-bottom: 1px solid var(--line); padding: 3px 14px 3px 0; text-align: left; color: var(--ink-dim); }
 </style>
 
 <main>
   <header>
     <a class="back" href="/case-studies/">← Case studies</a>
     <h1>Image Workflow</h1>
-    <p class="lede">Seven months turning a manual image review and cropping job into a Python pipeline. <span class="hl">313 commits</span>, eight stages, used in real client work.</p>
+    <p class="lede">Keeping visual judgment, automating the repetitive work.</p>
   </header>
 
-  <nav class="jump" aria-label="On this page"><a href="#problem">The problem</a><a href="#built">What I built</a><a href="#grew">How it grew</a><a href="#next">What came next</a></nav>
+  <nav class="jump" aria-label="On this page"><a href="#glance">At a glance</a><a href="#owned">What I owned</a><a href="#selection">Selection</a><a href="#cropping">Cropping</a><a href="#reliable">Reliability</a><a href="#throughput">Throughput</a><a href="#scale">Why it mattered</a></nav>
 
-  <section id="problem">
-    <h2>The problem</h2>
-    <p>A high-volume content workflow ran on people: every image reviewed by hand, cropped by hand, sorted by hand. I built Image Workflow to automate it end to end, so a person only makes the calls a person has to make.</p>
-    <p class="note">The work was for a confidential client, so there are no screenshots and no link to the code. This page describes the engineering only.</p>
+  <section>
+    <p>The job usually started with two to four versions of the same image. I compared them in Finder, chose the best version, then cropped, saved and moved it on. Batches quickly grew from about 1,000 images to between 5,000 and 19,000. Repeating the manual sequence at that scale was painful.</p>
+    <p>Image Workflow let me handle those larger batches with <span class="hl">much less repetitive effort</span>. I kept control of which image was best and how it should be framed. The software carried out the repeated handling around those decisions.</p>
+    <p>From late August through October 2025, the assignment covered <span class="hl">128,200 source images</span> and produced <span class="hl">28,285 finished images</span>. One recorded cropping run produced <span class="hl">391 completed crops in an hour</span>.</p>
   </section>
 
-  <section id="built">
-    <h2>What I built</h2>
+  <section id="glance">
+    <h2>The efficiencies at a glance</h2>
     <ul>
-      <li>A <span class="hl">batch image-processing pipeline</span> in Python: automated cropping, grouping, selection staging and delete staging across large image sets.</li>
-      <li>A <span class="hl">custom desktop review tool</span> for fast human-in-the-loop triage of what the pipeline produced.</li>
-      <li><span class="hl">Dataset preparation</span> for model training.</li>
+      <li><span class="hl">Selection:</span> related versions appeared together, and one hotkey chose the keeper and advanced to the next group.</li>
+      <li><span class="hl">Less unnecessary work:</span> acceptable images could bypass cropping, while images needing adjustment carried the original selection into the crop queue.</li>
+      <li><span class="hl">Less repetitive mouse work:</span> a center handle reduced two corner adjustments to one continuous gesture, with three selected images displayed together.</li>
+      <li><span class="hl">Continuous flow:</span> batch submission handled saving and moving, loaded the next images and continued across directories.</li>
+      <li><span class="hl">Recovery:</span> decision records, paired metadata, recoverable deletion and original archives made the work traceable and provided ways to restore it.</li>
     </ul>
-    <p>The pipeline is eight numbered steps, run in order on each project. The bar under each is how much code it took.</p>
-    <ol class="stages" aria-label="The eight pipeline stages and their size in lines of code">
-      <li><b><span>00</span>Start a project</b><i style="width:24%"></i><small>780 lines</small></li>
-      <li><b><span>01</span>AI-assisted review</b><i style="width:79%"></i><small>2,551 lines</small></li>
-      <li><b><span>02</span>Crop and group</b><i style="width:86%"></i><small>2,779 lines</small></li>
-      <li><b><span>03</span>Sort</b><i style="width:100%"></i><small>3,228 lines</small></li>
-      <li><b><span>04</span>Check</b><i style="width:9%"></i><small>282 lines</small></li>
-      <li><b><span>05</span>Compare folders</b><i style="width:25%"></i><small>803 lines</small></li>
-      <li><b><span>06</span>Find duplicates</b><i style="width:27%"></i><small>873 lines</small></li>
-      <li><b><span>07</span>Finish a project</b><i style="width:21%"></i><small>665 lines</small></li>
-    </ol>
-    <p class="note">About 12,100 lines across the eight stages, with 65 test files behind them.</p>
   </section>
 
-  <section id="grew">
-    <h2>How it grew</h2>
-    <p>Most of it was built in two fast stretches, late September and October 2025 (175 commits that month alone), then a push in December. After that the commits thin out to a handful a month.</p>
+  <section id="owned">
+    <h2>What I owned</h2>
+    <p>I designed the workflow, defined the interactions, directed implementation and refined the software through daily production use. My decisions came from doing the work: identifying which actions required visual judgment and which repeated steps the software could take over.</p>
+    <p>I used AI to write the implementation under my direction. I tested the working behavior on real batches, reported failures and checked whether changes solved the problem in continued use. These were tools I built for my own paid content-operations work for a confidential digital-media client.</p>
+  </section>
+
+  <section id="selection">
+    <h2>Carry one visual decision through the workflow</h2>
+    <p>In Finder, choosing the best of three versions still left the file handling: drag the keeper to another folder, or select and delete the unwanted alternatives.</p>
+    <p>I organized the interface around the comparison itself. Related versions appeared in one row. A hotkey selected the image and brought the next row into view, so my hand could stay on the keyboard through a batch. On submission, the program moved the chosen files and set the unwanted versions aside.</p>
+    <p>In the later workflow, I separated choosing an image from deciding whether it needed a crop. A good image could go forward unchanged. Another set of hotkeys selected a version and marked that same file for cropping. That avoided finding the chosen image again or forcing every accepted image through an unnecessary editing step.</p>
     <figure>
-      <div class="chart" id="chart"></div>
-      <figcaption>Commits per week, Sept 15, 2025 to Apr 26, 2026 · from the repo's git history</figcaption>
-      <details><summary>See the numbers</summary><table id="table"><tr><th>Week of</th><th>Commits</th></tr></table></details>
+      <a href="selection-tool-annotated.webp"><img src="selection-tool-annotated.webp" width="2400" height="1774" loading="lazy" alt="The selection tool with callouts identifying the selected keeper and the E shortcut to select that version and flag it for cropping."></a>
+      <figcaption>My actual selection tool, displaying generated sample photographs.</figcaption>
     </figure>
   </section>
 
-  <section id="next">
-    <h2>What came next</h2>
-    <p>Image Workflow has since been retired, replaced by PickKit, a newer tool.</p>
+  <section id="cropping">
+    <h2>Make the repeated gesture easier</h2>
+    <p>The cropper displayed three selected images together and kept each image's aspect ratio locked. I could make the entire crop with one continuous center-handle drag: tighten the framing against the image boundaries, reposition it and release. The handle was a large target, so I could grab it quickly without having to pinpoint a small control. One gesture replaced two separate corner adjustments, reducing clicks and the need for precise mouse movements.</p>
+    <p>One batch submission saved the results, moved the images and their metadata, and loaded the next images. Keyboard controls and automatic directory changes reduced the repeated clicking and window switching around the actual framing decision.</p>
+    <figure>
+      <a href="cropping-tool-annotated.webp"><img src="cropping-tool-annotated.webp" width="2400" height="1716" loading="lazy" alt="The three-image cropper with callouts identifying the large center handle for a continuous drag with locked aspect ratio, and Enter to submit the batch."></a>
+      <figcaption>My actual cropping tool, displaying generated sample photographs.</figcaption>
+    </figure>
+  </section>
+
+  <section id="reliable">
+    <h2>Keep the batch position reliable</h2>
+    <p>Production use exposed a concrete problem: moving between directories could produce blank image panels. I reported the failure while working through real batches.</p>
+    <p>The software tracked the batch position in more than one place. The fixes established one authoritative record of that position and removed the duplicate step that advanced it. I then checked the behavior through continued production work; directory transitions became unobtrusive enough that I could keep processing without noticing them.</p>
+    <p>Reliability also depended on keeping each image connected to its metadata. A shared file-moving utility gathered the image's companion files before moving them. Group decision records retained the original alternatives and the selected filename, while operation logs recorded the movements. Those records supported checks for missing files or duplicates and made a decision traceable after files changed directories.</p>
+    <p>Unwanted images went to a staging area or Trash, and original archives provided a separate restoration source. No source images were permanently lost during the assignment.</p>
+  </section>
+
+  <section id="throughput">
+    <h2>Measured throughput</h2>
+    <p>The recorded one-hour run produced <span class="hl">391 crops: 6.5 per minute</span>, averaging <span class="hl">9.2 seconds of elapsed run time per completed crop</span>. That interval also included reviewing and rejecting other candidates, so the figure includes more than the crop gesture alone.</p>
+    <p>This measures the cropping stage after version selection. It is not a timing measurement for all 128,200 source images, and the assignment totals include work performed as the tools evolved.</p>
+  </section>
+
+  <section id="scale">
+    <h2>Why small reductions mattered</h2>
+    <p>Across 28,285 finished images, <span class="hl">if the workflow eliminated 30 seconds of repeated handling per image, that would amount to 236 hours</span>. At 10 seconds per image, it would amount to 79 hours. This illustrates the scale of the opportunity; it is not a measured before-and-after saving.</p>
+    <p>I could handle larger batches with much less repetitive effort, retain control of the visual decisions, and keep the work traceable and recoverable.</p>
   </section>
 
   <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
 </main>
-<script>
-// commits per week (Monday of each week), counted from git log; drawn as one series of bars on a shared baseline
-const WEEKS = [["2025-09-15", 10], ["2025-09-22", 62], ["2025-09-29", 18], ["2025-10-06", 18], ["2025-10-13", 4], ["2025-10-20", 87], ["2025-10-27", 56], ["2025-11-03", 19], ["2025-11-10", 0], ["2025-11-17", 0], ["2025-11-24", 0], ["2025-12-01", 25], ["2025-12-08", 0], ["2025-12-15", 0], ["2025-12-22", 0], ["2025-12-29", 5], ["2026-01-05", 0], ["2026-01-12", 0], ["2026-01-19", 0], ["2026-01-26", 0], ["2026-02-02", 0], ["2026-02-09", 0], ["2026-02-16", 0], ["2026-02-23", 0], ["2026-03-02", 0], ["2026-03-09", 0], ["2026-03-16", 0], ["2026-03-23", 3], ["2026-03-30", 3], ["2026-04-06", 1], ["2026-04-13", 1], ["2026-04-20", 1]];
-const chart = document.getElementById("chart"), W = 640, H = 200, L = 28, B = 22, T = 8, max = 100;  // T: not `top`, which is window.top in a classic script
-const slot = (W - L) / WEEKS.length, bw = Math.min(24, slot - 2), y = n => H - B - (H - B - T) * n / max;
-const fmt = d => new Date(d + "T00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Commits per week: peaks of 62 in late September 2025 and 87 in late October, quiet from January">`;
-for (const n of [0, 50, 100]) svg += `<line class="grid" x1="${L}" x2="${W}" y1="${y(n)}" y2="${y(n)}"/><text class="axis" x="${L - 6}" y="${y(n) + 3}" text-anchor="end">${n}</text>`;
-WEEKS.forEach(([d, n], i) => {
-  const x = L + i * slot + (slot - bw) / 2, h = H - B - y(n), r = Math.min(4, h);
-  if (d.endsWith("-01") || i === 0 || new Date(d + "T00:00").getDate() <= 7) svg += `<text class="axis" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${new Date(d + "T00:00").toLocaleDateString("en-US", { month: "short" })}</text>`;
-  svg += `<rect class="hit" data-i="${i}" x="${L + i * slot}" y="${T}" width="${slot}" height="${H - B - T}"/>`;
-  svg += n ? `<path class="bar" data-i="${i}" d="M${x},${H - B}V${H - B - h + r}q0,-${r} ${r},-${r}h${bw - 2 * r}q${r},0 ${r},${r}V${H - B}Z"/>` : `<path class="bar" data-i="${i}" d=""/>`;
-});
-chart.innerHTML = svg + "</svg>";
-const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; chart.append(tip);
-chart.addEventListener("pointerover", e => {
-  const i = e.target.dataset?.i; if (i === undefined) return;
-  const [d, n] = WEEKS[i], r = e.target.getBoundingClientRect(), c = chart.getBoundingClientRect();
-  tip.textContent = `week of ${fmt(d)}: ${n} commit${n === 1 ? "" : "s"}`; tip.hidden = false;
-  // centred on the bar, but never past either edge of the chart: clamp by the label's own half-width
-  const half = tip.offsetWidth / 2, mid = r.left + r.width / 2 - c.left;
-  tip.style.left = `${c.width < 2 * half ? c.width / 2 : Math.min(Math.max(mid, half), c.width - half)}px`; tip.style.top = `${y(Math.max(n, 8)) / H * c.height}px`;
-});
-chart.addEventListener("pointerleave", () => { tip.hidden = true; });
-document.getElementById("table").append(...WEEKS.filter(([, n]) => n).map(([d, n]) => { const tr = document.createElement("tr"); tr.innerHTML = `<td>${fmt(d)}</td><td>${n}</td>`; return tr; }));
-</script>
 </html>
