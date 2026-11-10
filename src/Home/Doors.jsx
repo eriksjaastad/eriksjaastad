@@ -406,7 +406,8 @@ export function ShopDoor() {
   );
 }
 
-// Flashback: the cabin's plank door, drawn in the same chunky pixels as the maze outside it. The fire's going inside.
+// Flashback: the cabin's plank door, drawn in the same chunky pixels as the maze outside it. The fire's going inside,
+// and shows through the panes and under the door.
 const ZIGS = ['#ff3d7f', '#2ecc71', '#ffd23f', '#ff3d7f', '#2ecc71'];
 const EMBERS = [[148, 92, '#ffe9a8'], [156, 120, '#ffd27a'], [144, 148, '#ff9a2e'], [156, 176, '#ffe9a8'], [148, 208, '#ffd27a'], [156, 236, '#ff9a2e'], [132, 124, '#ffd27a'], [128, 196, '#ffe9a8']];
 
@@ -433,13 +434,15 @@ export function CabinDoor() {
             </g>
           ))}
         </g>
-        {/* the stone step the door shuts onto */}
+        {/* the stone step under the door, and the gap between them that the firelight gets out through, onto the step */}
         <rect x="36" y="282" width="144" height="8" fill="#3a3632" /><rect x="36" y="282" width="144" height="4" fill="#57514b" />
+        <rect className="lit" x="48" y="278" width="120" height="4" fill="#ffd27a" opacity=".85" />
+        <rect className="pool" x="56" y="282" width="108" height="8" fill="#ffab3d" fillOpacity=".3" />
         <Crack id="cabin-crack" at={168} top={64} color="#ffc15a" wide={20} step={8} />
       </Sheet>
       <Leaf at={48} crisp>
-        {[0, 1, 2, 3, 4].map(i => <rect key={i} x={48 + i * 24} y="64" width="24" height="218" fill={['#6a4426', '#5c3a20', '#6f4829', '#5c3a20', '#674225'][i]} />)}
-        {[1, 2, 3, 4].map(i => <rect key={i} x={46 + i * 24} y="64" width="4" height="218" fill="#3b2414" />)}
+        {[0, 1, 2, 3, 4].map(i => <rect key={i} x={48 + i * 24} y="64" width="24" height="214" fill={['#6a4426', '#5c3a20', '#6f4829', '#5c3a20', '#674225'][i]} />)}
+        {[1, 2, 3, 4].map(i => <rect key={i} x={46 + i * 24} y="64" width="4" height="214" fill="#3b2414" />)}
         <rect x="48" y="84" width="120" height="16" fill="#4a2d18" /><rect x="48" y="84" width="120" height="4" fill="#7a5230" />
         <rect x="48" y="244" width="120" height="16" fill="#4a2d18" /><rect x="48" y="244" width="120" height="4" fill="#7a5230" />
         {/* four panes with the fire going behind them */}
@@ -451,8 +454,8 @@ export function CabinDoor() {
         <rect x="150" y="188" width="4" height="36" fill="#1a1008" />
         <rect x="146" y="184" width="12" height="8" fill="#1a1008" /><rect x="146" y="220" width="12" height="8" fill="#1a1008" />
         <rect x="154" y="200" width="8" height="4" fill="#1a1008" />
-        <rect className="shade" x="48" y="64" width="120" height="218" fill="#000" />
-        <Rim id="cabin-rim" at={168} top={64} bottom={282} color="#ffe1a0" pixel />
+        <rect className="shade" x="48" y="64" width="120" height="214" fill="#000" />
+        <Rim id="cabin-rim" at={168} top={64} bottom={278} color="#ffe1a0" pixel />
       </Leaf>
     </>
   );
