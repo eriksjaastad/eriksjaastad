@@ -112,7 +112,8 @@ body.home .ghost { font: 12px var(--mono); color: var(--ink-dim); }
    drawn once per row and run out past both edges of the window, sits under the whole row. */
 .hall { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .art { display: block; position: relative; aspect-ratio: 220 / 340; }
-.art svg { display: block; position: relative; width: 100%; height: 100%; overflow: visible; }
+/* a door's drawing is a few sheets stacked in this one box: the wall and the room behind it, the leaf, the light that gets out */
+.art svg { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .host .art::before, .door:nth-of-type(4) .art::before {
   content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(100% * 284 / 340); bottom: -14px;
   /* painted 100vw past each side as a border image, which (unlike a wider box) adds nothing to scroll sideways to */
@@ -133,20 +134,42 @@ body.home .ghost { font: 12px var(--mono); color: var(--ink-dim); }
 /* the door being walked through: named for the page transition in /site.css, which grows the next page out of it */
 .door.through .art { view-transition-name: var(--door); }
 
-/* a door gives a little when you reach for it, and its room gets brighter */
-.leaf { transition: transform .5s cubic-bezier(.2,.8,.2,1); }
-.door:hover .leaf, .door:focus-visible .leaf { transform: scaleX(.925); }
-.door:active .leaf { transform: scaleX(.86); }
+/* The doors start shut. Reach for one and it swings on its hinges: the leaf turns in 3D about --hinge, seen from where
+   you're standing (the perspective on .art, sized in the door's own width so it looks the same at every size), so its far
+   edge gets shorter as it goes into the room. Light comes through the gap that opens at the free edge. */
+.door { container-type: inline-size; }
+.door .art { perspective: 620px; perspective: 290cqw; perspective-origin: 50% 44%; }
+.leaf { transform-origin: var(--hinge) 50%; transition: transform .7s cubic-bezier(.2,.8,.2,1); }
+.door:hover .leaf, .door:focus-visible .leaf { transform: rotateY(var(--swing, 30deg)); }
+.door:active .leaf { transform: rotateY(calc(var(--swing, 30deg) * 1.6)); }
+/* the face of the leaf falls into shadow as it turns away, and its free edge catches the room's light */
+.shade, .rim { opacity: 0; transition: opacity .45s; }
+.door:hover .shade, .door:focus-visible .shade { opacity: .28; }
+.door:hover .rim, .door:focus-visible .rim { opacity: .9; }
+/* what gets out: the glow round the gap, then the strip it lays across the floor, widening from the jamb as the gap does */
+.out { opacity: 0; transition: opacity .3s; }
+.door:hover .out, .door:focus-visible .out { opacity: 1; transition: opacity .5s .12s; }
+.spill { transform: scaleX(.2); transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.door:hover .spill, .door:focus-visible .spill { transform: scaleX(1); transition-delay: .1s; }
+.door:active .spill { transform: scaleX(1.7); }
+/* the light under the three doors that have a gap there, and a little of it on the wall round them; the sealed ones show none */
 .pool { opacity: .7; transition: opacity .45s; }
-/* a little of each room's light gets round the frame and onto the wall */
-.door .art::after { content: ""; position: absolute; z-index: -1; inset: 2% -8% 10%; border-radius: 50%; background: radial-gradient(closest-side, var(--light), transparent); opacity: .07; transition: opacity .45s; }
-.door:hover .art::after, .door:focus-visible .art::after { opacity: .2; }
 .door:hover .pool, .door:focus-visible .pool { opacity: 1; }
-.lit, .halo { transition: opacity .45s; }
+.door .art::after { content: ""; position: absolute; z-index: -1; inset: 2% -8% 10%; border-radius: 50%; background: radial-gradient(closest-side, var(--light), transparent); opacity: 0; transition: opacity .45s; }
+.cases .art::after, .shop .art::after, .cabin .art::after { opacity: .07; }
+.door:hover .art::after, .door:focus-visible .art::after { opacity: .2; }
+.lit { transition: opacity .45s; }
 .door:hover .lit, .door:focus-visible .lit { opacity: 1; }
-.door:hover .halo, .door:focus-visible .halo { opacity: 1; }
-.lever { transform-origin: 162.5px 178px; transition: transform .55s cubic-bezier(.3,1.5,.5,1); }
-.door:hover .lever, .door:focus-visible .lever { transform: rotate(52deg); }
+/* the memory hatch opens the other way, out into the hall, so you're standing to its right looking into the gap.
+   The lever throws the bolts first, then the hatch comes; .back is its thickness, the same disc a little behind the face. */
+.memory .art { perspective-origin: 95% 52%; }
+.leaf.back { transform: rotateY(0deg) translateZ(-12px); transform: rotateY(0deg) translateZ(-5.5cqw); }
+.door:hover .leaf.back, .door:focus-visible .leaf.back { transform: rotateY(var(--swing)) translateZ(-12px); transform: rotateY(var(--swing)) translateZ(-5.5cqw); }
+.door:active .leaf.back { transform: rotateY(calc(var(--swing) * 1.6)) translateZ(-12px); transform: rotateY(calc(var(--swing) * 1.6)) translateZ(-5.5cqw); }
+.memory:hover .leaf, .memory:focus-visible .leaf { transition-delay: .2s; }
+.memory:hover .out, .memory:focus-visible .out { transition-delay: .34s; }
+.lever { transform-origin: 162.5px 178px; transition: transform .45s cubic-bezier(.3,1.5,.5,1) .3s; }
+.door:hover .lever, .door:focus-visible .lever { transform: rotate(52deg); transition-delay: 0s; }
 .bar { transition: transform .15s; }
 .door:hover .bar, .door:focus-visible .bar { transform: translateY(1.5px); }
 
@@ -202,6 +225,6 @@ body.away { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .thinking { animation: none; color: var(--ink); }
-  #home, #memory, .leaf, .lever, .pool, .lit, .halo, .door .art::after { transition: none; }
+  #home, #memory, .leaf, .lever, .pool, .lit, .out, .spill, .shade, .rim, .door .art::after { transition: none !important; }
   .orbit, .day.hot, .sign, .pane.a, .pane.b { animation: none; }
 }
