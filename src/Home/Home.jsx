@@ -2,10 +2,18 @@ import React, { useEffect } from 'react';
 import './Home.css';
 import { mount } from './intro';
 import { HallDefs, MemoryDoor, CaseDoor, GithubDoor, GalleryDoor, ShopDoor, CabinDoor } from './Doors';
-import { DOORS } from './hall.js';
+import { DOORS, doorName } from './hall.js';
 
 // The drawing that goes with each door in hall.js.
 const DRAWING = { memory: MemoryDoor, cases: CaseDoor, github: GithubDoor, gallery: GalleryDoor, shop: ShopDoor, cabin: CabinDoor };
+
+// Marks the one door being walked through (and unmarks the last one), so the page transition starts from it.
+function through(ev) {
+  const door = ev.target.closest('.door');
+  if (!door) return;
+  for (const last of ev.currentTarget.querySelectorAll('.door.through')) last.classList.remove('through');
+  door.classList.add('through');
+}
 
 // The loading intro (a year thermometer, 1983 → 2026) hands off to the homepage: a hall with six doors.
 // Markup is static; intro.js drives it by id, and its cleanup runs on unmount.
@@ -62,7 +70,7 @@ export default function Home() {
         </div>
 
         {/* The hall: the character on the left, then six doors. Each door is one link; its caption sits under the floor. */}
-        <nav className="hall" aria-label="Six doors">
+        <nav className="hall" aria-label="Six doors" onClick={through}>
           <div className="host">
             <div className="art">
               <p className="pick" aria-hidden="true">Six doors.<br />Pick one.</p>
@@ -72,7 +80,7 @@ export default function Home() {
           {DOORS.map(({ id, href, name, about, light }) => {
             const Door = DRAWING[id], [host, path] = about.split('/');
             return (
-              <a className={`door ${id}`} id={id === 'memory' ? 'memoryLink' : undefined} href={href} key={id} style={{ '--light': light }}>
+              <a className={`door ${id}`} id={id === 'memory' ? 'memoryLink' : undefined} href={href} key={id} style={{ '--light': light, '--door': doorName(id) }}>
                 <span className="art"><Door /></span>
                 <b>{name}</b>
                 {/* an address may wrap after its slash, nowhere else */}

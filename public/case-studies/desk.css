@@ -1,6 +1,8 @@
 /* The office behind the case-studies door: a dark desk under one lamp, and the files lying on it.
    Paper is cream with dark ink, a file's status is rubber-stamped on it, and its typed labels are the mono face.
    Used by /case-studies/ (the files) and each write-up (one file, opened). The house style comes from /site.css. */
+/* the door in the hall that leads here: the page grows out of it (see /site.css) */
+:root { view-transition-name: door-cases; }
 :root { color-scheme: dark; --pen: #1d1a16; --pen-dim: #5d564a; --marker: #ffe066; --press: #c2410c; }
 * { box-sizing: border-box; }
 body {

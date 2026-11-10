@@ -11,14 +11,19 @@
   --line: #2e3039;
   --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  /* a little tooth for flat surfaces, used as a background layer: pale specks for dark walls, dark specks for paper */
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  --grain-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .13 0 0 0 0 .05 0 0 0 .2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* a little tooth for flat surfaces, laid on as a background: pale specks for dark walls, dark specks for paper.
+     Small noise tiles, not an SVG turbulence filter, so nothing has to be computed while the page paints or scrolls. */
+  --grain: url("/grain.png");
+  --grain-dark: url("/grain-dark.png");
 }
 
-/* Going from one page to the next is a step through a door: the room you leave swells past you, the next one settles in. */
+/* Going from one page to the next is a walk through a door. The hall names the door you clicked (.through, Home.css) and
+   each room's page gives its <html> the same view-transition-name, so the browser grows the room out of that door,
+   seen through the doorway first, and shrinks it back in when you press Back. Anything without a door just steps past. */
 @view-transition { navigation: auto; }
-::view-transition-old(root) { animation: .28s ease-in both step-out; }
+::view-transition-group(*) { animation-duration: .55s; animation-timing-function: cubic-bezier(.45, 0, .15, 1); }
+::view-transition-old(*), ::view-transition-new(*) { height: 100%; object-fit: cover; }
+::view-transition-old(root) { animation: .3s ease-in both step-out; }
 ::view-transition-new(root) { animation: .5s ease-out both step-in; }
 @keyframes step-out { to { opacity: 0; transform: scale(1.06); } }
 @keyframes step-in { from { opacity: 0; transform: scale(.98); } }
@@ -59,6 +64,6 @@
 .foot a:hover { color: var(--neon); text-decoration-color: currentColor; }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   .label .home svg { transition: none; } .label .home .eye { animation: none; }
 }

@@ -8,3 +8,6 @@ export const DOORS = [
   { id: 'shop', href: '/websites/', name: 'Websites', about: 'sites I built and run', light: '#ff7d8e' },
   { id: 'cabin', href: '/flashback/outside/', name: 'Flashback', about: "a '90s cabin full of the old stuff", light: '#ffab3d' },
 ];
+
+// The view-transition-name a door and its room's pages share, so the browser can grow the room out of the door.
+export const doorName = id => `door-${id}`;

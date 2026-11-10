@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { DOORS } from "../src/Home/hall.js";
+import { DOORS, doorName } from "../src/Home/hall.js";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const PAGES = [
@@ -45,5 +45,17 @@ test("every door goes where its card went", () => {
 test("a door inside the site leads to a page that exists", () => {
   for (const { href } of DOORS.filter(d => d.href.startsWith("/"))) {
     assert.ok(existsSync(new URL(`../public${href}index.html`, import.meta.url)), `${href} has a page`);
+  }
+});
+
+// The page transition grows a room out of its door only if both sides use one name: the door's, set by doorName(id),
+// and the room's, on its <html> (in the page itself, or in the stylesheet its pages share).
+const ROOMS = {
+  memory: ["public/memory/index.html"], cases: ["public/case-studies/desk.css"], gallery: ["public/gallery/index.html"],
+  shop: ["public/websites/index.html"], cabin: ["public/flashback/outside/index.html", "public/flashback/index.html"],
+};
+test("each room is named for the door that leads to it", () => {
+  for (const { id } of DOORS.filter(d => d.href.startsWith("/"))) {
+    for (const file of ROOMS[id]) assert.ok(read(file).includes(`:root { view-transition-name: ${doorName(id)}; }`), `${file} is ${doorName(id)}`);
   }
 });
