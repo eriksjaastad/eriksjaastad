@@ -24,6 +24,19 @@ for (const page of PAGES) {
   });
 }
 
+// The pages are standalone files with no build step, so each carries its own copy of these two drawings.
+test("every page draws the same character for the way home", () => {
+  const drawing = page => read(page).match(/<a class="home"[^>]*>(<svg.*?<\/svg>)/s)?.[1];
+  assert.ok(drawing(PAGES[0]), "the first page has one");
+  for (const page of PAGES) assert.equal(drawing(page), drawing(PAGES[0]), page);
+});
+
+test("both case study pages press their stamps with the same ink", () => {
+  const ink = page => read(page).match(/<filter id="ink".*?<\/filter>/s)?.[0];
+  assert.ok(ink("public/case-studies/index.html"), "the index has the filter");
+  assert.equal(ink("public/case-studies/image-workflow/index.html"), ink("public/case-studies/index.html"));
+});
+
 test("the homepage loads the house stylesheet", () => {
   assert.ok(read("index.html").includes('<link rel="stylesheet" href="/site.css">'));
 });
