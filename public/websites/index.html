@@ -20,76 +20,136 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/site.css">
 <style>
-/* Same room as the homepage and /case-studies/: one column of sites, each card a link out. */
-:root {
-  color-scheme: dark;
-  --room: #15161b;
-  --room-2: #1e2027;
-  --ink: #ece7dc;
-  --ink-dim: #9a968d;
-  --amber: #ffc46b;
-  --line: #2e3039;
-  --neon: #ff6a00;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-}
+/* The street behind the websites door: each site is a shop, its real front page lit in the window and its status
+   hung on the door. Captions sit under the pavement, the way the hall's sit under its floor. House style: /site.css. */
+:root { color-scheme: dark; }
 * { box-sizing: border-box; }
 body {
-  margin: 0; min-height: 100vh;
-  background: radial-gradient(120% 80% at 50% 0%, var(--room-2), var(--room) 60%);
-  background-color: var(--room);
-  color: var(--ink);
-  font: 17px/1.55 var(--display);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 28px 48px;
+  margin: 0; min-height: 100vh; color: var(--ink); font: 17px/1.55 var(--display); overflow-x: hidden;
+  background: var(--grain), radial-gradient(90% 520px at 50% 108%, rgba(255, 190, 120, .07), transparent 70%), linear-gradient(#121319, var(--room) 55%);
+  padding: 22px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px));
 }
-main { max-width: 760px; margin: 0 auto; display: grid; gap: 36px; }
-a { color: inherit; }
-:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; }
-.back { font: 12px var(--mono); color: var(--ink-dim); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
-.back:hover { color: var(--neon); }
-h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035em; margin: 18px 0 14px; text-wrap: balance; }
-.lede { margin: 0; max-width: 56ch; color: var(--ink-dim); }
-.list { display: grid; gap: 12px; }
-.study { display: grid; text-decoration: none; color: inherit; gap: 8px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, box-shadow .2s; }
-.study:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.3); }
-.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
-.study h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
-.status { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
-.study p { margin: 0; color: var(--ink-dim); max-width: 62ch; }
-.study small { font: 12px var(--mono); color: var(--ink-dim); }
-.study:hover small { color: var(--neon); }
-.foot { font: 12px var(--mono); color: var(--ink-dim); border-top: 1px solid var(--line); padding-top: 16px; }
-@media (prefers-reduced-motion: reduce) { .study { transition: none; } }
+main { max-width: 1120px; margin: 0 auto; display: grid; gap: 44px; }
+:focus-visible { outline: 2px solid var(--neon); outline-offset: 4px; }
+.head h1 { margin: 26px 0 14px; font: 800 clamp(46px, 8vw, 92px)/.92 var(--display); letter-spacing: -.04em; }
+.lede { margin: 0; max-width: 54ch; color: var(--ink-dim); font-size: 18px; }
+
+.street { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 22px; }
+/* two shared rows, buildings then captions, so every shop stands on the same pavement however tall it is or long its caption */
+.shop { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 0; text-decoration: none; color: var(--ink); -webkit-tap-highlight-color: transparent; }
+.building { position: relative; display: grid; align-self: end; }
+/* the pavement, painted the full width of the window from under every shop (see the hall floor in Home.css) */
+.building::after { content: ""; display: block; height: 44px; border-image: linear-gradient(#3a3c45 0 3px, #2a2c34 3px 4px, #24262d 4px, #17181e) fill 0 / 0 / 0 100vw; }
+/* the window's light, lying on the pavement */
+.building::before { content: ""; position: absolute; z-index: 1; left: 4%; width: 66%; bottom: 0; height: 44px; background: radial-gradient(60% 100% at 50% 0, var(--glow), transparent 75%); opacity: .2; transition: opacity .35s; }
+
+/* upstairs: dark flats, somebody still up in one of them */
+.upper { height: var(--rise); display: flex; justify-content: space-evenly; align-items: center; background: var(--wall); border-top: 6px solid var(--paint); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+.upper i { width: 19%; height: min(56%, 46px); background: #0c0d11; box-shadow: 0 0 0 3px var(--trim), 0 0 0 4px rgba(255, 255, 255, .05); }
+.upper i.lit { background: linear-gradient(#f6cf85, #d99a45); box-shadow: 0 0 0 3px var(--trim), 0 0 22px rgba(240, 180, 90, .35); }
+.shop:nth-child(2) .upper i.lit { order: 3; }
+
+/* the signboard */
+.fascia { margin: 0; padding: 15px 10px 14px; text-align: center; font: 800 clamp(17px, 1.9vw, 23px)/1 var(--display); letter-spacing: -.01em; color: #f3ead6; background: var(--paint);
+  box-shadow: inset 0 0 0 4px var(--paint), inset 0 0 0 5px rgba(243, 234, 214, .45), 0 -1px 0 rgba(255, 255, 255, .1); text-wrap: balance; transition: color .25s; }
+/* the awning: stripes, a scalloped edge, a little wider than the shop */
+.awning { position: relative; z-index: 2; height: 36px; margin: 0 -9px -8px; background: repeating-linear-gradient(90deg, var(--awn-a) 0 24px, var(--awn-b) 24px 48px); filter: brightness(.82);
+  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 100%, 0 100%);
+  -webkit-mask: radial-gradient(12px at 12px 0, #000 97%, #0000) 0 100% / 24px 12px repeat-x, linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat;
+  mask: radial-gradient(12px at 12px 0, #000 97%, #0000) 0 100% / 24px 12px repeat-x, linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat;
+  transform-origin: top; transition: transform .35s cubic-bezier(.3, 1.5, .5, 1); }
+
+/* the shopfront: one big window and the door */
+.front { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 25%; gap: 12px; padding: 20px 12px 0; background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, 0) 34px), var(--paint); }
+.glass { position: relative; align-self: start; aspect-ratio: 16 / 10; margin-bottom: 22px; overflow: hidden; background: #0c0d11; box-shadow: 0 0 0 4px var(--trim), 0 0 0 5px rgba(255, 255, 255, .1), 0 0 46px -4px var(--glow); }
+.glass img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; transition: filter .35s; filter: brightness(.94); }
+.glass::after { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, transparent 38%, rgba(255, 255, 255, .13) 39% 45%, transparent 46% 50%, rgba(255, 255, 255, .07) 51% 54%, transparent 55%); pointer-events: none; }
+.entry { position: relative; clip-path: inset(-5px -5px 0 -5px); border-radius: 2px 2px 0 0; background: linear-gradient(rgba(0, 0, 0, .28), rgba(0, 0, 0, .28)), var(--paint); box-shadow: 0 0 0 4px var(--trim), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.entry::before { content: ""; position: absolute; inset: 9% 13% 40%; background: linear-gradient(#15110d, #46321f); box-shadow: 0 0 0 2px var(--trim); }
+.entry::after { content: ""; position: absolute; right: 12%; top: 64%; width: 5px; height: 22px; border-radius: 3px; background: #c9bfa8; }
+/* the card on the door */
+.hang { position: absolute; z-index: 1; top: 21%; left: 50%; translate: -50% 0; rotate: -4deg; transform-origin: 50% -14px; padding: 6px 7px 5px; border-radius: 2px; background: #f3ead6; color: #a8331a; box-shadow: 0 2px 5px rgba(0, 0, 0, .55);
+  font: 800 11px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; transition: rotate .5s cubic-bezier(.3, 2.2, .5, 1); }
+.hang::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 22px; height: 12px; translate: -50% 0; border: solid #9c937f; border-width: 1px 1px 0 1px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+
+/* not open yet: lights low, a banner pasted across the glass */
+.soon .glass img { filter: brightness(.5) saturate(.7); }
+.soon .glass { box-shadow: 0 0 0 4px var(--trim), 0 0 0 5px rgba(255, 255, 255, .1), 0 0 30px -10px var(--glow); }
+.soon .hang { color: #5d564a; }
+.banner { position: absolute; left: -8%; right: -8%; top: 38%; rotate: -7deg; padding: 7px 0 6px; text-align: center; background: #f3ead6; color: #1d1a16; box-shadow: 0 2px 8px rgba(0, 0, 0, .5);
+  font: 500 clamp(11px, 1.2vw, 14px)/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; }
+
+.words { display: grid; gap: 8px; padding: 14px 12px 0; }
+.words span { font-size: 15.5px; line-height: 1.5; color: var(--ink-dim); text-wrap: pretty; }
+.words small { font: 12px var(--mono); color: var(--ink-dim); transition: color .2s; }
+
+.shop:hover .awning, .shop:focus-visible .awning { transform: scaleY(1.1); }
+.shop:hover .hang, .shop:focus-visible .hang { rotate: 5deg; }
+.shop:hover .glass img, .shop:focus-visible .glass img { filter: brightness(1.06); }
+.soon:hover .glass img, .soon:focus-visible .glass img { filter: brightness(.68) saturate(.85); }
+.shop:hover .building::before, .shop:focus-visible .building::before { opacity: .42; }
+.shop:hover .fascia, .shop:focus-visible .fascia { color: #fff; }
+.shop:hover .words small, .shop:focus-visible .words small { color: var(--neon); }
+
+.foot { margin-top: 8px; }
+@media (max-width: 860px) {
+  .street { grid-template-columns: minmax(0, 440px); justify-content: center; }
+  .shop { --rise: 52px !important; }
+  .shop + .shop { margin-top: 46px; }
+  .fascia { font-size: 22px; }
+  .banner { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { .awning, .hang, .glass img, .building::before, .fascia { transition: none; } }
 </style>
 
 <main>
-  <header>
-    <a class="back" href="/">← Home</a>
+  <header class="head">
+    <div class="label"><a class="home" href="/" aria-label="Home"><svg viewBox="76 16 360 404" aria-hidden="true"><path d="M256 92Q262 60 282 44" fill="none" stroke="#e0795c" stroke-width="9" stroke-linecap="round"/><circle class="bulb" cx="284" cy="40" r="15" fill="#ffc46b"/><rect x="178" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="294" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="92" y="88" width="328" height="296" rx="112" fill="#ff906b"/><rect x="140" y="136" width="232" height="172" rx="70" fill="#1d1b28"/><ellipse class="eye" cx="214" cy="212" rx="17" ry="26" fill="#fff"/><ellipse class="eye" cx="298" cy="212" rx="17" ry="26" fill="#fff"/><path d="M271.6 267.6A22 22 0 0 1 240.4 267.6" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>← home</a></div>
     <h1>Websites</h1>
     <p class="lede">Sites I built and run. The list grows as more of them go live.</p>
   </header>
 
-  <section class="list" aria-label="Websites">
-    <a class="study" href="https://hypocrisynowinc.com">
-      <div class="top"><h2>Hypocrisy Now</h2><span class="status">Live</span></div>
-      <p>A political hypocrisy tracker: what politicians said then against what they do now, with the receipts, and campaign finance dossiers.</p>
-      <small>hypocrisynowinc.com</small>
+  <section class="street" aria-label="Websites">
+    <a class="shop" href="https://hypocrisynowinc.com" style="--paint:#2c2f38; --wall:#20222a; --trim:#0f1014; --awn-a:#2c2f38; --awn-b:#d9d1bf; --glow:#f3ead6; --rise:74px">
+      <span class="building">
+        <span class="upper" aria-hidden="true"><i></i><i class="lit"></i><i></i></span>
+        <h2 class="fascia">Hypocrisy Now</h2>
+        <span class="awning" aria-hidden="true"></span>
+        <span class="front">
+          <span class="glass"><img src="hypocrisy-now.webp" width="720" height="450" alt="The Hypocrisy Now homepage: “Receipts, not rants.”"></span>
+          <span class="entry"><span class="hang">Open</span></span>
+        </span>
+      </span>
+      <span class="words"><span>A political hypocrisy tracker: what politicians said then against what they do now, with the receipts, and campaign finance dossiers.</span><small>hypocrisynowinc.com</small></span>
     </a>
-    <a class="study" href="https://muffinpanrecipes.com">
-      <div class="top"><h2>Muffin Pan Recipes</h2><span class="status">Live</span></div>
-      <p>Single-serving recipes made for a muffin tin, scaled to fit it: breakfast, savory and sweet.</p>
-      <small>muffinpanrecipes.com</small>
+    <a class="shop" href="https://muffinpanrecipes.com" style="--paint:#9c4426; --wall:#2b1d18; --trim:#3c170b; --awn-a:#b4532e; --awn-b:#e6d9c2; --glow:#ffd9ae; --rise:46px">
+      <span class="building">
+        <span class="upper" aria-hidden="true"><i></i><i class="lit"></i><i></i></span>
+        <h2 class="fascia">Muffin Pan Recipes</h2>
+        <span class="awning" aria-hidden="true"></span>
+        <span class="front">
+          <span class="glass"><img src="muffin-pan-recipes.webp" width="720" height="450" alt="The Muffin Pan Recipes homepage, with a tray of paprika mushroom cups."></span>
+          <span class="entry"><span class="hang">Open</span></span>
+        </span>
+      </span>
+      <span class="words"><span>Single-serving recipes made for a muffin tin, scaled to fit it: breakfast, savory and sweet.</span><small>muffinpanrecipes.com</small></span>
     </a>
-    <a class="study" href="https://adventurecatphotos.com">
-      <div class="top"><h2>Adventure Cat Photos</h2><span class="status">Coming soon</span></div>
-      <p>Describe a wild situation and get a picture of your cat in it. Cats only.</p>
-      <small>adventurecatphotos.com</small>
+    <a class="shop soon" href="https://adventurecatphotos.com" style="--paint:#1c3554; --wall:#141d2c; --trim:#0b1422; --awn-a:#e0a548; --awn-b:#1c3554; --glow:#f2b25a; --rise:96px">
+      <span class="building">
+        <span class="upper" aria-hidden="true"><i></i><i class="lit"></i><i></i></span>
+        <h2 class="fascia">Adventure Cat Photos</h2>
+        <span class="awning" aria-hidden="true"></span>
+        <span class="front">
+          <span class="glass"><img src="adventure-cat-photos.webp" width="720" height="450" alt="The Adventure Cat Photos page: “Your cat. A wild adventure.”"><span class="banner" aria-hidden="true">Coming soon</span></span>
+          <span class="entry"><span class="hang">Soon</span></span>
+        </span>
+      </span>
+      <span class="words"><span>Describe a wild situation and get a picture of your cat in it. Cats only.</span><small>adventurecatphotos.com</small></span>
     </a>
   </section>
 
-  <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
+  <footer class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></footer>
 </main>
 </html>

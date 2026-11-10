@@ -2,16 +2,7 @@
 
 /* Layout: one CRT on a desk at night; a year-thermometer under it uncovers each decade's heckle, then the room opens into the homepage. */
 :root {
-  --room: #15161b;
-  --room-2: #1e2027;
-  --ink: #ece7dc;
-  --ink-dim: #9a968d;
-  --coral: #ff8a65;
-  --amber: #ffc46b;
-  --line: #2e3039;
-  --neon: #ff6a00;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* the palette and the two house typefaces come from /site.css; these are the intro's period fonts */
   --ti: "Press Start 2P", ui-monospace, monospace;
   --mac: "VT323", ui-monospace, monospace;
   --flash: "Silkscreen", ui-monospace, monospace;
@@ -104,37 +95,109 @@ body.home :focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; 
 body.home .ghost { font: 12px var(--mono); color: var(--ink-dim); }
 .ghost:hover, body.home .ghost:hover { color: var(--neon); border-color: var(--neon); }
 
-/* ---------- homepage ---------- */
-#motes { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-#home { position: relative; z-index: 1; transform-origin: 50% 45%; transition: transform 1.5s cubic-bezier(.55,0,.2,1), opacity 1.3s ease-in, filter 1.3s ease-in; max-width: 980px; margin: 0 auto; display: grid; gap: 40px; padding-block: 2vh 0; }
-.hero { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: clamp(20px, 5vw, 56px); align-items: center; }
-#buddy { width: 100%; max-width: 300px; aspect-ratio: 1; }
-.hero h1 { font: 800 clamp(48px, 9vw, 96px)/.92 var(--display); letter-spacing: -.035em; margin: 0 0 14px; text-wrap: balance; }
-.say { font: 14px var(--mono); color: var(--amber); margin: 0 0 18px; }
-.hero p { max-width: 52ch; color: var(--ink); margin: 0; font-size: 18px; }
-.paths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }  /* rows of three: new paths start the next row */
-.path { display: grid; gap: 4px; text-decoration: none; color: var(--ink); padding: 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, transform .2s; }
-.path:hover { border-color: var(--neon); transform: translateY(-2px); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.35); }
-.path:hover b { color: var(--neon); text-shadow: 0 0 12px rgba(255,106,0,.55); }
-.path b { font-size: 20px; font-weight: 600; }
-.path small { color: var(--ink-dim); font: 12px var(--mono); }
-.timeline { border-top: 1px solid var(--line); padding-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; font: 12px/1.5 var(--mono); color: var(--ink-dim); }
-.timeline b { display: block; color: var(--ink); font-weight: 500; }
-.foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font: 12px var(--mono); color: var(--ink-dim); }
-.foot a { color: inherit; text-underline-offset: 3px; }
-.foot a:hover { color: var(--neon); }
+/* ---------- homepage: a hall at night with six doors ---------- */
+#motes { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; transition: opacity 1.3s ease-in; }
+#home { position: relative; z-index: 1; transform-origin: 50% 45%; transition: transform 1.5s cubic-bezier(.55,0,.2,1), opacity 1.3s ease-in, filter 1.3s ease-in;
+  max-width: 1500px; margin: 0 auto; display: grid; gap: clamp(22px, 4.5vh, 48px); padding-block: 1vh 0; }
+.hall-defs { position: absolute; }
+
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 28px 48px; }
+.hello h1 { font: 800 clamp(52px, 8.4vw, 112px)/.9 var(--display); letter-spacing: -.04em; margin: 0 0 18px; }
+.say { font: 14px var(--mono); color: var(--amber); margin: 0 0 12px; }
+.hello p:last-child { max-width: 50ch; margin: 0; font-size: 18px; }
+
+/* The hall. Every drawing shares one box with the floor at 290/340 of its height, so one strip of floor,
+   drawn once per row and run out past both edges of the window, sits under the whole row. */
+.hall { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.art { display: block; position: relative; aspect-ratio: 220 / 340; }
+.art svg { display: block; position: relative; width: 100%; height: 100%; overflow: visible; }
+.host .art::before, .door:nth-of-type(4) .art::before {
+  content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(100% * 284 / 340); bottom: -14px;
+  /* painted 100vw past each side as a border image, which (unlike a wider box) adds nothing to scroll sideways to */
+  border-image: linear-gradient(#24262e 0 5px, rgba(255,255,255,.16) 5px 6px, rgba(255,255,255,.075) 6px, rgba(255,255,255,0) 96%) fill 0 / 0 / 0 100vw;
+}
+.door:nth-of-type(4) .art::before { display: none; }
+
+/* the character stands in the hall, feet on the floor */
+#buddy { position: absolute; left: -8%; top: 27.5%; width: 112%; aspect-ratio: 1; }
+.host .art::after { content: ""; position: absolute; left: 20%; right: 24%; top: 86.5%; height: 4.5%; border-radius: 50%; background: rgba(0,0,0,.5); filter: blur(5px); z-index: -1; }
+.pick { position: absolute; left: 10%; top: 7%; margin: 0; padding: 0 0 8px 12px; border-left: 2px solid var(--coral); font: 500 15px/1.3 var(--display); color: var(--ink-dim); }
+
+.door { display: block; text-decoration: none; color: var(--ink); -webkit-tap-highlight-color: transparent; outline-offset: 6px; }
+.door b { display: block; margin: 16px 8px 4px 17%; font: 600 19px/1.15 var(--display); letter-spacing: -.01em; transition: color .25s; text-wrap: balance; }
+.door small { display: block; margin: 0 10px 0 17%; font: 13.5px/1.4 var(--display); color: var(--ink-dim); text-wrap: pretty; }
+.door small.url { font: 12px/1.6 var(--mono); }
+.door:hover b, .door:focus-visible b { color: var(--light); }
+
+/* a door gives a little when you reach for it, and its room gets brighter */
+.leaf { transition: transform .5s cubic-bezier(.2,.8,.2,1); }
+.door:hover .leaf, .door:focus-visible .leaf { transform: scaleX(.925); }
+.door:active .leaf { transform: scaleX(.86); }
+.pool { opacity: .7; transition: opacity .45s; }
+/* a little of each room's light gets round the frame and onto the wall */
+.door .art::after { content: ""; position: absolute; z-index: -1; inset: 2% -8% 10%; border-radius: 50%; background: radial-gradient(closest-side, var(--light), transparent); opacity: .07; transition: opacity .45s; }
+.door:hover .art::after, .door:focus-visible .art::after { opacity: .2; }
+.door:hover .pool, .door:focus-visible .pool { opacity: 1; }
+.lit, .halo { transition: opacity .45s; }
+.door:hover .lit, .door:focus-visible .lit { opacity: 1; }
+.door:hover .halo, .door:focus-visible .halo { opacity: 1; }
+.lever { transform-origin: 162.5px 178px; transition: transform .55s cubic-bezier(.3,1.5,.5,1); }
+.door:hover .lever, .door:focus-visible .lever { transform: rotate(52deg); }
+.bar { transition: transform .15s; }
+.door:hover .bar, .door:focus-visible .bar { transform: translateY(1.5px); }
+
+/* what goes on behind the doors while nobody's looking */
+.orbit { transform-origin: 0 0; animation: orbit 140s linear infinite; }
+.day.hot { animation: commit 8s ease-in-out infinite; }
+.sign { animation: buzz 11s linear infinite; }
+.pane.a { animation: fire 2.4s steps(3) infinite alternate; }
+.pane.b { animation: fire 1.7s steps(3) infinite alternate-reverse; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+@keyframes commit { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@keyframes buzz { 0%, 91%, 93.5%, 96.5%, 100% { opacity: 1; } 92%, 95.5% { opacity: .35; } }
+@keyframes fire { from { opacity: 1; } to { opacity: .72; } }
+
+/* the machines so far, hung on the wall like a plaque */
+.machines { margin: 0 0 4px; display: grid; gap: 9px; width: min(100%, 400px); }
+.machines div { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: baseline; }
+.machines dt { font: 500 12px var(--mono); color: var(--amber); }
+.machines dd { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-dim); text-wrap: pretty; }
+.machines dd b { font-weight: 600; color: var(--ink); }
+.foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink-dim); }
+.foot a, body.home .replay { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; }
+body.home .replay { background: none; border: 0; padding: 0; }
+.foot a:hover, body.home .replay:hover { color: var(--neon); text-decoration-color: currentColor; }
+
 /* pushed into the distance while the memory graph flies in behind it */
 #memory { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 0; visibility: hidden; transition: visibility 0s 1.5s; }
 body.away #memory { visibility: visible; transition: none; }
 body.away #home, body.away #motes { transform: scale(.06); opacity: 0; filter: blur(6px); pointer-events: none; }
 body.away { overflow: hidden; }
-#motes { transition: opacity 1.3s ease-in; }
 
+/* a narrower window: the character and three doors, then the other three under them */
+@media (max-width: 1099px) {
+  .hall { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 30px; }
+  .door:nth-of-type(4) { grid-column-start: 2; }
+  .door:nth-of-type(4) .art::before { display: block; }
+}
+/* a phone: the character on a landing of its own, then three floors of two doors */
 @media (max-width: 640px) {
-  .hero { grid-template-columns: 1fr; justify-items: start; }
-  #buddy { max-width: 180px; }
-  .paths { grid-template-columns: 1fr; }
+  .hall { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 26px; }
+  .host { grid-column: 1 / -1; }
+  .host .art { aspect-ratio: auto; height: 132px; }
+  #buddy { left: -4px; top: -6px; width: 140px; }
+  .host .art::after { left: 22px; right: auto; width: 84px; top: 84%; height: 9px; }
+  .pick { left: 148px; top: 30px; }
+  .door:nth-of-type(4) { grid-column-start: auto; }
+  .door:nth-of-type(4) .art::before { display: none; }
+  .door:nth-of-type(odd) .art::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(100% * 284 / 340); bottom: -14px;
+    border-image: linear-gradient(#24262e 0 5px, rgba(255,255,255,.16) 5px 6px, rgba(255,255,255,.075) 6px, rgba(255,255,255,0) 96%) fill 0 / 0 / 0 100vw; }
+  .door b { font-size: 17px; margin-top: 12px; }
   .ticks, .heckles { font-size: 10px; }
   .e0 .screen { font-size: 9px; }
 }
-@media (prefers-reduced-motion: reduce) { .thinking { animation: none; color: var(--ink); } .path, #home, #memory { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .thinking { animation: none; color: var(--ink); }
+  #home, #memory, .leaf, .lever, .pool, .lit, .halo, .door .art::after { transition: none; }
+  .orbit, .day.hot, .sign, .pane.a, .pane.b { animation: none; }
+}

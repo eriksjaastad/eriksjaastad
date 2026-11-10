@@ -1,0 +1,64 @@
+/* The house style every page shares: one palette, two typefaces, the little monitor in the top-left corner
+   that takes you home, and the walk between rooms. Each page keeps its own scene on top of this. */
+:root {
+  --room: #15161b;
+  --room-2: #1e2027;
+  --ink: #ece7dc;
+  --ink-dim: #9a968d;
+  --coral: #ff8a65;
+  --amber: #ffc46b;
+  --neon: #ff6a00;
+  --line: #2e3039;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* a little tooth for flat surfaces, used as a background layer: pale specks for dark walls, dark specks for paper */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .13 0 0 0 0 .05 0 0 0 .2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Going from one page to the next is a step through a door: the room you leave swells past you, the next one settles in. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: .28s ease-in both step-out; }
+::view-transition-new(root) { animation: .5s ease-out both step-in; }
+@keyframes step-out { to { opacity: 0; transform: scale(1.06); } }
+@keyframes step-in { from { opacity: 0; transform: scale(.98); } }
+
+/* The wall label: the character (the way home), the room's name and one line about it.
+   Over a 3D room it gets a dark backing (.plaque); on a reading page it sits at the top of the column. */
+.label { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: center; color: var(--ink); }
+.label .home { grid-row: span 2; display: grid; justify-items: center; gap: 2px; text-decoration: none; color: var(--ink-dim); font: 500 10px/1 var(--mono); letter-spacing: .04em; pointer-events: auto; }
+.label .home svg { display: block; width: 36px; height: 40px; overflow: visible; transition: transform .3s cubic-bezier(.3, 1.7, .5, 1); }
+.label .home .eye { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
+.label .home .bulb { transition: fill .2s; }
+.label .home:hover, .label .home:focus-visible { color: var(--neon); }
+.label .home:hover svg, .label .home:focus-visible svg { transform: translateY(-3px) rotate(-7deg); }
+.label .home:hover .bulb, .label .home:focus-visible .bulb { fill: var(--neon); }
+.label h1 { margin: 0; font: 800 22px/1.1 var(--display); letter-spacing: -.02em; align-self: end; }
+.label p { margin: 2px 0 0; font: 13px/1.3 var(--display); color: var(--ink-dim); align-self: start; }
+/* the dark backing that keeps it readable over any room; the page that uses it says where it goes */
+.label.plaque { max-width: calc(100vw - 24px); padding: 7px 16px 7px 10px; border-radius: 4px; pointer-events: none;
+  background: rgba(17, 17, 21, .78); box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 10px 30px rgba(0, 0, 0, .35); backdrop-filter: blur(8px); }
+@keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(.1); } }
+
+/* What a room's own buttons look like when they float over it: words on a dark strip, the current one underlined in orange. */
+.tabs { display: flex; flex-wrap: wrap; border-radius: 4px; overflow: hidden; background: rgba(17, 17, 21, .78); box-shadow: 0 0 0 1px rgba(255, 255, 255, .07); backdrop-filter: blur(8px); }
+.tabs > * { font: 500 13px/1 var(--display); color: var(--ink-dim); text-decoration: none; background: none; border: 0; padding: 9px 13px; cursor: pointer; box-shadow: inset 0 -2px 0 transparent; transition: color .15s, box-shadow .15s; }
+.tabs > * + * { border-left: 1px solid rgba(255, 255, 255, .07); }
+.tabs > :hover { color: var(--ink); box-shadow: inset 0 -2px 0 var(--neon); }
+.tabs > [aria-current], .tabs > [aria-pressed="true"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--neon); }
+
+/* How to move, along the bottom of a room. Each hint is its own dark chip, so it reads over a bright floor as well as a dark one. */
+.keys { font: 12px/1 var(--display); color: #d9d2c6; }
+.keys span span { display: inline-block; white-space: nowrap; margin: 4px 6px 0 0; padding: 4px 8px 4px 4px; border-radius: 4px; background: rgba(17, 17, 21, .78); box-shadow: 0 0 0 1px rgba(255, 255, 255, .06); }
+.keys b { display: inline-block; font: 500 11px/1 var(--mono); color: var(--ink); background: #2c2e37; border-radius: 3px; padding: 3px 5px; margin-right: 5px; }
+.keys b + b { margin-left: -2px; }
+
+/* the line at the bottom of a reading page */
+.foot { font-size: 13px; color: var(--ink-dim); }
+.foot a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; }
+.foot a:hover { color: var(--neon); text-decoration-color: currentColor; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  .label .home svg { transition: none; } .label .home .eye { animation: none; }
+}

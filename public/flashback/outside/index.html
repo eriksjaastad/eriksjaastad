@@ -6,24 +6,22 @@
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/site.css">
 <style>
 /* The way into Flashback: an 8-bit top-down walk through a hedge maze to the cabin. Arrow keys, or a D-pad on phones. */
 :root {
-  --bg: #0e0d0b; --ink: #f3ebe4; --muted: #a39484; --neon: #ff6a00; --line: #3b322b;
-  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #0e0d0b; --ink: #f3ebe4; --muted: #a39484; --line: #3b322b;
   color-scheme: dark;
 }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; }
 canvas { position: fixed; image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
 .chrome { position: fixed; z-index: 2; }
-#title { top: max(16px, env(safe-area-inset-top)); left: 18px; pointer-events: none; }
-#title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
-#home { top: max(14px, env(safe-area-inset-top)); right: 16px; font-size: 14px; color: var(--ink); text-decoration: none; background: rgba(14,13,11,.6); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
-#home:hover { border-color: var(--neon); color: var(--neon); }
-#hint { left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); font: 12px var(--mono); color: var(--muted); pointer-events: none; }
+#title { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+#hint { left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); white-space: nowrap; pointer-events: none; }
 /* the D-pad: only on touch screens, bottom left where a thumb rests; hold a direction to keep walking */
 #pad { display: none; left: 18px; bottom: max(22px, env(safe-area-inset-bottom)); width: 156px; height: 156px; touch-action: none; }
 #pad button { position: absolute; width: 52px; height: 52px; border: 2px solid #5b4a3a; background: #2a231c; color: var(--ink); font-size: 20px; border-radius: 8px; padding: 0; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -35,10 +33,9 @@ canvas { position: fixed; image-rendering: pixelated; image-rendering: crisp-edg
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .8s; z-index: 3; }
 body.entering #fade { opacity: 1; }
 </style>
-<header id="title" class="chrome"><h1>Flashback</h1><p>find your way to the cabin</p></header>
-<a id="home" class="chrome" href="/">Home</a>
+<header id="title" class="chrome label plaque"><a class="home" href="/" aria-label="Home"><svg viewBox="76 16 360 404" aria-hidden="true"><path d="M256 92Q262 60 282 44" fill="none" stroke="#e0795c" stroke-width="9" stroke-linecap="round"/><circle class="bulb" cx="284" cy="40" r="15" fill="#ffc46b"/><rect x="178" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="294" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="92" y="88" width="328" height="296" rx="112" fill="#ff906b"/><rect x="140" y="136" width="232" height="172" rx="70" fill="#1d1b28"/><ellipse class="eye" cx="214" cy="212" rx="17" ry="26" fill="#fff"/><ellipse class="eye" cx="298" cy="212" rx="17" ry="26" fill="#fff"/><path d="M271.6 267.6A22 22 0 0 1 240.4 267.6" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>← home</a><h1>Flashback</h1><p>find your way to the cabin</p></header>
 <canvas id="screen" width="160" height="144" aria-label="A top-down 8-bit hedge maze leading to a cabin in the woods"></canvas>
-<div id="hint" class="chrome"><span class="desk">arrow keys to walk</span><span class="touch">hold the arrows to walk</span></div>
+<div id="hint" class="chrome keys"><span class="desk"><span><b>arrow keys</b>walk</span></span><span class="touch"><span><b>hold an arrow</b>walk</span></span></div>
 <div id="pad" class="chrome" aria-label="Arrow buttons"><button data-dir="up" aria-label="Up">▲</button><button data-dir="left" aria-label="Left">◀</button><button data-dir="right" aria-label="Right">▶</button><button data-dir="down" aria-label="Down">▼</button></div>
 <div id="fade"></div>
 <script type="module">

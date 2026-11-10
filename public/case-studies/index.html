@@ -20,83 +20,53 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<style>
-/* Same room as the homepage: dark gray, neon orange on hover. One column of works in progress. */
-:root {
-  color-scheme: dark;
-  --room: #15161b;
-  --room-2: #1e2027;
-  --ink: #ece7dc;
-  --ink-dim: #9a968d;
-  --amber: #ffc46b;
-  --line: #2e3039;
-  --neon: #ff6a00;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; min-height: 100vh;
-  background: radial-gradient(120% 80% at 50% 0%, var(--room-2), var(--room) 60%);
-  background-color: var(--room);
-  color: var(--ink);
-  font: 17px/1.55 var(--display);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 28px 48px;
-}
-main { max-width: 760px; margin: 0 auto; display: grid; gap: 36px; }
-a { color: inherit; }
-:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; }
-.back { font: 12px var(--mono); color: var(--ink-dim); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
-.back:hover { color: var(--neon); }
-h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035em; margin: 18px 0 14px; text-wrap: balance; }
-.lede { margin: 0; max-width: 56ch; color: var(--ink-dim); }
-.list { display: grid; gap: 12px; }
-.study { display: grid; gap: 8px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, box-shadow .2s; }
-a.study { text-decoration: none; color: inherit; }
-.study .icon { width: 28px; height: 28px; color: var(--neon); }
-.study:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.3); }
-.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
-.study h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
-.status { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
-.study p { margin: 0; color: var(--ink-dim); max-width: 62ch; }
-.study small { font: 12px var(--mono); color: var(--ink-dim); }
-.study small a { text-underline-offset: 3px; }
-.study small a:hover { color: var(--neon); }
-.foot { font: 12px var(--mono); color: var(--ink-dim); border-top: 1px solid var(--line); padding-top: 16px; }
-@media (prefers-reduced-motion: reduce) { .study { transition: none; } }
-</style>
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/case-studies/desk.css">
 
+<svg class="ink-defs" width="0" height="0" aria-hidden="true"><filter id="ink" x="-5%" y="-10%" width="110%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.5" result="d"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -9 6.1" result="gaps"/><feComposite in="d" in2="gaps" operator="in"/></filter></svg>
 <main>
-  <header>
-    <a class="back" href="/">← Home</a>
+  <header class="head">
+    <div class="label"><a class="home" href="/" aria-label="Home"><svg viewBox="76 16 360 404" aria-hidden="true"><path d="M256 92Q262 60 282 44" fill="none" stroke="#e0795c" stroke-width="9" stroke-linecap="round"/><circle class="bulb" cx="284" cy="40" r="15" fill="#ffc46b"/><rect x="178" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="294" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="92" y="88" width="328" height="296" rx="112" fill="#ff906b"/><rect x="140" y="136" width="232" height="172" rx="70" fill="#1d1b28"/><ellipse class="eye" cx="214" cy="212" rx="17" ry="26" fill="#fff"/><ellipse class="eye" cx="298" cy="212" rx="17" ry="26" fill="#fff"/><path d="M271.6 267.6A22 22 0 0 1 240.4 267.6" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>← home</a></div>
     <h1>Case studies</h1>
     <p class="lede">Write-ups of real work, with what I measured and what I'm still guessing at. Each one goes up in full once its numbers and claims check out; the rest are still in progress.</p>
   </header>
 
-  <section class="list" aria-label="Case studies">
-    <a class="study" href="/case-studies/image-workflow/">
-      <svg class="icon" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 2v18h18M2 8h18v18"/></svg>
-      <div class="top"><h2>Image Workflow</h2><span class="status">Shipped</span></div>
-      <p>Keeping visual judgment with the operator while automating repeated handling made larger image batches manageable with much less repetitive effort. The assignment covered 128,200 source images and produced 28,285 finished images; one recorded cropping run completed 391 crops in an hour.</p>
+  <!-- One file is finished and opens; the other three are still being written, so they are sheets, not links. -->
+  <section class="desk" aria-label="Case studies">
+    <a class="sheet open" href="/case-studies/image-workflow/" style="--tilt:-.5deg">
+      <div>
+        <span class="typed">Case 01</span>
+        <h2>Image Workflow</h2>
+        <p>Keeping visual judgment with the operator while automating repeated handling made larger image batches manageable with much less repetitive effort. The assignment covered 128,200 source images and produced 28,285 finished images; one recorded cropping run completed 391 crops in an hour.</p>
+        <span class="go">Read the write-up</span>
+      </div>
+      <figure class="print"><svg viewBox="0 0 22 50" aria-hidden="true"><path d="M5 14v24a6 6 0 0 0 12 0V9a4.5 4.5 0 0 0 -9 0v27a2 2 0 0 0 4 0V14" fill="none" stroke="#8d939c" stroke-width="2" stroke-linecap="round"/><path d="M5 14v24a6 6 0 0 0 12 0V9" fill="none" stroke="#c9ced6" stroke-width=".8" stroke-linecap="round"/></svg><img src="image-workflow/selection-tool-thumb.webp" width="640" height="473" alt="The selection tool: rows of versions of the same photograph, one chosen in each row."></figure>
+      <span class="stamp shipped" style="--stamp-tilt:5deg">Shipped</span>
     </a>
-    <article class="study">
-      <div class="top"><h2>One agent managing another</h2><span class="status">Draft in review</span></div>
-      <p>An experiment on Holoscape, my macOS terminal app: one AI agent managing the project, and a second agent that was supposed to write the code. What the commit history, pull requests and telemetry show about how that went, including where the records disagree.</p>
-    </article>
-    <article class="study">
-      <div class="top"><h2>Muffin Pan Recipes, run like a client</h2><span class="status">Measuring the baseline</span></div>
-      <p>An SEO engagement on my own recipe site, run with the discipline a paying client would get: scope, a measured baseline, tracked changes, then a re-measure. No result gets claimed without the before number.</p>
-      <small><a href="https://muffinpanrecipes.com">muffinpanrecipes.com</a></small>
-    </article>
-    <article class="study">
-      <div class="top"><h2>Hypocrisy Now, run like a client</h2><span class="status">Measuring the baseline</span></div>
-      <p>The same practice on a larger site: a Next.js research publication with its own API and database. Technical SEO findings, each with what the server actually returned and when.</p>
-      <small><a href="https://hypocrisynowinc.com">hypocrisynowinc.com</a></small>
-    </article>
+    <div class="pile">
+      <article class="sheet" style="--tilt:.9deg">
+        <span class="typed">Case 02</span>
+        <h2>One agent managing another</h2>
+        <p>An experiment on Holoscape, my macOS terminal app: one AI agent managing the project, and a second agent that was supposed to write the code. What the commit history, pull requests and telemetry show about how that went, including where the records disagree.</p>
+        <span class="stamp draft" style="--stamp-tilt:-3deg">Draft in review</span>
+      </article>
+      <article class="sheet" style="--tilt:-.7deg">
+        <span class="typed">Case 03</span>
+        <h2>Muffin Pan Recipes, run like a client</h2>
+        <p>An SEO engagement on my own recipe site, run with the discipline a paying client would get: scope, a measured baseline, tracked changes, then a re-measure. No result gets claimed without the before number.</p>
+        <small><a href="https://muffinpanrecipes.com">muffinpanrecipes.com</a></small>
+        <span class="stamp measuring" style="--stamp-tilt:2.5deg">Measuring the baseline</span>
+      </article>
+      <article class="sheet" style="--tilt:.5deg">
+        <span class="typed">Case 04</span>
+        <h2>Hypocrisy Now, run like a client</h2>
+        <p>The same practice on a larger site: a Next.js research publication with its own API and database. Technical SEO findings, each with what the server actually returned and when.</p>
+        <small><a href="https://hypocrisynowinc.com">hypocrisynowinc.com</a></small>
+        <span class="stamp measuring" style="--stamp-tilt:-4deg">Measuring the baseline</span>
+      </article>
+    </div>
   </section>
 
-  <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
+  <footer class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></footer>
 </main>
 </html>
