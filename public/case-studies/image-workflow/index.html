@@ -20,138 +20,88 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<style>
-/* One case study: the /case-studies/ room, a jump-to nav, a readable column, and two annotated screenshots of the real tools. */
-:root {
-  color-scheme: dark;
-  --room: #15161b;
-  --room-2: #1e2027;
-  --ink: #ece7dc;
-  --ink-dim: #9a968d;
-  --amber: #ffc46b;
-  --line: #2e3039;
-  --neon: #ff6a00;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; min-height: 100vh;
-  background: radial-gradient(120% 80% at 50% 0%, var(--room-2), var(--room) 60%);
-  background-color: var(--room);
-  color: var(--ink);
-  font: 17px/1.55 var(--display);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 28px 48px;
-}
-main { max-width: 760px; margin: 0 auto; display: grid; gap: 36px; }
-a { color: inherit; }
-:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; }
-.back { font: 12px var(--mono); color: var(--ink-dim); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
-.back:hover { color: var(--neon); }
-h1 { font: 800 clamp(44px, 8vw, 80px)/.95 var(--display); letter-spacing: -.035em; margin: 18px 0 14px; text-wrap: balance; }
-.lede { margin: 0; max-width: 56ch; color: var(--ink-dim); }
-.list { display: grid; gap: 12px; }
-.study { display: grid; gap: 8px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02); transition: border-color .2s, box-shadow .2s; }
-.study:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 28px rgba(255,106,0,.3); }
-.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
-.study h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
-.status { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
-.study p { margin: 0; color: var(--ink-dim); max-width: 62ch; }
-.study small { font: 12px var(--mono); color: var(--ink-dim); }
-.study small a { text-underline-offset: 3px; }
-.study small a:hover { color: var(--neon); }
-.foot { font: 12px var(--mono); color: var(--ink-dim); border-top: 1px solid var(--line); padding-top: 16px; }
-@media (prefers-reduced-motion: reduce) { .study { transition: none; } }
-nav.jump { display: flex; flex-wrap: wrap; gap: 8px; }
-nav.jump a { font: 12px var(--mono); color: var(--ink-dim); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; }
-nav.jump a:hover { color: var(--neon); border-color: var(--neon); }
-section { display: grid; gap: 12px; scroll-margin-top: 16px; }
-section h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
-section p, section li { color: var(--ink); max-width: 62ch; margin: 0; }
-section ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
-.hl { color: var(--amber); }
-.note { font-size: 15px; color: var(--ink-dim) !important; border-left: 2px solid var(--line); padding-left: 12px; }
-/* the screenshots: full column width, linked to the full-size image */
-figure { margin: 0; display: grid; gap: 8px; }
-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; }
-figcaption { font: 12px var(--mono); color: var(--ink-dim); }
-</style>
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/case-studies/desk.css">
 
+<svg class="ink-defs" width="0" height="0" aria-hidden="true"><filter id="ink" x="-5%" y="-10%" width="110%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.5" result="d"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -9 6.1" result="gaps"/><feComposite in="d" in2="gaps" operator="in"/></filter></svg>
 <main>
-  <header>
-    <a class="back" href="/case-studies/">← Case studies</a>
-    <h1>Image Workflow</h1>
-    <p class="lede">Keeping visual judgment, automating the repetitive work.</p>
-  </header>
+  <div class="label corner"><a class="home" href="/" aria-label="Home"><svg viewBox="76 16 360 404" aria-hidden="true"><path d="M256 92Q262 60 282 44" fill="none" stroke="#e0795c" stroke-width="9" stroke-linecap="round"/><circle class="bulb" cx="284" cy="40" r="15" fill="#ffc46b"/><rect x="178" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="294" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="92" y="88" width="328" height="296" rx="112" fill="#ff906b"/><rect x="140" y="136" width="232" height="172" rx="70" fill="#1d1b28"/><ellipse class="eye" cx="214" cy="212" rx="17" ry="26" fill="#fff"/><ellipse class="eye" cx="298" cy="212" rx="17" ry="26" fill="#fff"/><path d="M271.6 267.6A22 22 0 0 1 240.4 267.6" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>← home</a><p class="crumb"><a href="/case-studies/">← Case studies</a></p></div>
 
-  <nav class="jump" aria-label="On this page"><a href="#glance">At a glance</a><a href="#owned">What I owned</a><a href="#selection">Selection</a><a href="#cropping">Cropping</a><a href="#reliable">Reliability</a><a href="#throughput">Throughput</a><a href="#scale">Why it mattered</a></nav>
+  <article class="sheet file">
+    <header>
+      <span class="typed">Case 01</span>
+      <span class="stamp shipped" style="--stamp-tilt:5deg">Shipped</span>
+      <h1>Image Workflow</h1>
+      <p class="lede">Keeping visual judgment, automating the repetitive work.</p>
+    </header>
 
-  <section>
-    <p>The job usually started with two to four versions of the same image. I compared them in Finder, chose the best version, then cropped, saved and moved it on. Batches quickly grew from about 1,000 images to between 5,000 and 19,000. Repeating the manual sequence at that scale was painful.</p>
-    <p>Image Workflow let me handle those larger batches with <span class="hl">much less repetitive effort</span>. I kept control of which image was best and how it should be framed. The software carried out the repeated handling around those decisions.</p>
-    <p>From late August through October 2025, the assignment covered <span class="hl">128,200 source images</span> and produced <span class="hl">28,285 finished images</span>. One recorded cropping run produced <span class="hl">391 completed crops in an hour</span>.</p>
-  </section>
+    <nav class="jump" aria-label="On this page"><a href="#glance">At a glance</a><a href="#owned">What I owned</a><a href="#selection">Selection</a><a href="#cropping">Cropping</a><a href="#reliable">Reliability</a><a href="#throughput">Throughput</a><a href="#scale">Why it mattered</a></nav>
 
-  <section id="glance">
-    <h2>The efficiencies at a glance</h2>
-    <ul>
-      <li><span class="hl">Selection:</span> related versions appeared together, and one hotkey chose the keeper and advanced to the next group.</li>
-      <li><span class="hl">Less unnecessary work:</span> acceptable images could bypass cropping, while images needing adjustment carried the original selection into the crop queue.</li>
-      <li><span class="hl">Less repetitive mouse work:</span> a center handle reduced two corner adjustments to one continuous gesture, with three selected images displayed together.</li>
-      <li><span class="hl">Continuous flow:</span> batch submission handled saving and moving, loaded the next images and continued across directories.</li>
-      <li><span class="hl">Recovery:</span> decision records, paired metadata, recoverable deletion and original archives made the work traceable and provided ways to restore it.</li>
-    </ul>
-  </section>
+    <section>
+      <p>The job usually started with two to four versions of the same image. I compared them in Finder, chose the best version, then cropped, saved and moved it on. Batches quickly grew from about 1,000 images to between 5,000 and 19,000. Repeating the manual sequence at that scale was painful.</p>
+      <p>Image Workflow let me handle those larger batches with <span class="hl">much less repetitive effort</span>. I kept control of which image was best and how it should be framed. The software carried out the repeated handling around those decisions.</p>
+      <p>From late August through October 2025, the assignment covered <span class="hl">128,200 source images</span> and produced <span class="hl">28,285 finished images</span>. One recorded cropping run produced <span class="hl">391 completed crops in an hour</span>.</p>
+    </section>
 
-  <section id="owned">
-    <h2>What I owned</h2>
-    <p>I designed the workflow, defined the interactions, directed implementation and refined the software through daily production use. My decisions came from doing the work: identifying which actions required visual judgment and which repeated steps the software could take over.</p>
-    <p>I used AI to write the implementation under my direction. I tested the working behavior on real batches, reported failures and checked whether changes solved the problem in continued use. These were tools I built for my own paid content-operations work for a confidential digital-media client.</p>
-  </section>
+    <section id="glance">
+      <h2>The efficiencies at a glance</h2>
+      <ul>
+        <li><span class="hl">Selection:</span> related versions appeared together, and one hotkey chose the keeper and advanced to the next group.</li>
+        <li><span class="hl">Less unnecessary work:</span> acceptable images could bypass cropping, while images needing adjustment carried the original selection into the crop queue.</li>
+        <li><span class="hl">Less repetitive mouse work:</span> a center handle reduced two corner adjustments to one continuous gesture, with three selected images displayed together.</li>
+        <li><span class="hl">Continuous flow:</span> batch submission handled saving and moving, loaded the next images and continued across directories.</li>
+        <li><span class="hl">Recovery:</span> decision records, paired metadata, recoverable deletion and original archives made the work traceable and provided ways to restore it.</li>
+      </ul>
+    </section>
 
-  <section id="selection">
-    <h2>Carry one visual decision through the workflow</h2>
-    <p>In Finder, choosing the best of three versions still left the file handling: drag the keeper to another folder, or select and delete the unwanted alternatives.</p>
-    <p>I organized the interface around the comparison itself. Related versions appeared in one row. A hotkey selected the image and brought the next row into view, so my hand could stay on the keyboard through a batch. On submission, the program moved the chosen files and set the unwanted versions aside.</p>
-    <p>In the later workflow, I separated choosing an image from deciding whether it needed a crop. A good image could go forward unchanged. Another set of hotkeys selected a version and marked that same file for cropping. That avoided finding the chosen image again or forcing every accepted image through an unnecessary editing step.</p>
-    <figure>
-      <a href="selection-tool-annotated.webp"><img src="selection-tool-annotated.webp" width="2400" height="1774" loading="lazy" alt="The selection tool with callouts identifying the selected keeper and the E shortcut to select that version and flag it for cropping."></a>
-      <figcaption>My actual selection tool, displaying generated sample photographs.</figcaption>
-    </figure>
-  </section>
+    <section id="owned">
+      <h2>What I owned</h2>
+      <p>I designed the workflow, defined the interactions, directed implementation and refined the software through daily production use. My decisions came from doing the work: identifying which actions required visual judgment and which repeated steps the software could take over.</p>
+      <p>I used AI to write the implementation under my direction. I tested the working behavior on real batches, reported failures and checked whether changes solved the problem in continued use. These were tools I built for my own paid content-operations work for a confidential digital-media client.</p>
+    </section>
 
-  <section id="cropping">
-    <h2>Make the repeated gesture easier</h2>
-    <p>The cropper displayed three selected images together and kept each image's aspect ratio locked. I could make the entire crop with one continuous center-handle drag: tighten the framing against the image boundaries, reposition it and release. The handle was a large target, so I could grab it quickly without having to pinpoint a small control. One gesture replaced two separate corner adjustments, reducing clicks and the need for precise mouse movements.</p>
-    <p>One batch submission saved the results, moved the images and their metadata, and loaded the next images. Keyboard controls and automatic directory changes reduced the repeated clicking and window switching around the actual framing decision.</p>
-    <figure>
-      <a href="cropping-tool-annotated.webp"><img src="cropping-tool-annotated.webp" width="2400" height="1716" loading="lazy" alt="The three-image cropper with callouts identifying the large center handle for a continuous drag with locked aspect ratio, and Enter to submit the batch."></a>
-      <figcaption>My actual cropping tool, displaying generated sample photographs.</figcaption>
-    </figure>
-  </section>
+    <section id="selection">
+      <h2>Carry one visual decision through the workflow</h2>
+      <p>In Finder, choosing the best of three versions still left the file handling: drag the keeper to another folder, or select and delete the unwanted alternatives.</p>
+      <p>I organized the interface around the comparison itself. Related versions appeared in one row. A hotkey selected the image and brought the next row into view, so my hand could stay on the keyboard through a batch. On submission, the program moved the chosen files and set the unwanted versions aside.</p>
+      <p>In the later workflow, I separated choosing an image from deciding whether it needed a crop. A good image could go forward unchanged. Another set of hotkeys selected a version and marked that same file for cropping. That avoided finding the chosen image again or forcing every accepted image through an unnecessary editing step.</p>
+      <figure>
+        <a href="selection-tool-annotated.webp"><img src="selection-tool-annotated.webp" width="2400" height="1774" loading="lazy" alt="The selection tool with callouts identifying the selected keeper and the E shortcut to select that version and flag it for cropping."></a>
+        <figcaption>My actual selection tool, displaying generated sample photographs.</figcaption>
+      </figure>
+    </section>
 
-  <section id="reliable">
-    <h2>Keep the batch position reliable</h2>
-    <p>Production use exposed a concrete problem: moving between directories could produce blank image panels. I reported the failure while working through real batches.</p>
-    <p>The software tracked the batch position in more than one place. The fixes established one authoritative record of that position and removed the duplicate step that advanced it. I then checked the behavior through continued production work; directory transitions became unobtrusive enough that I could keep processing without noticing them.</p>
-    <p>Reliability also depended on keeping each image connected to its metadata. A shared file-moving utility gathered the image's companion files before moving them. Group decision records retained the original alternatives and the selected filename, while operation logs recorded the movements. Those records supported checks for missing files or duplicates and made a decision traceable after files changed directories.</p>
-    <p>Unwanted images went to a staging area or Trash, and original archives provided a separate restoration source. No source images were permanently lost during the assignment.</p>
-  </section>
+    <section id="cropping">
+      <h2>Make the repeated gesture easier</h2>
+      <p>The cropper displayed three selected images together and kept each image's aspect ratio locked. I could make the entire crop with one continuous center-handle drag: tighten the framing against the image boundaries, reposition it and release. The handle was a large target, so I could grab it quickly without having to pinpoint a small control. One gesture replaced two separate corner adjustments, reducing clicks and the need for precise mouse movements.</p>
+      <p>One batch submission saved the results, moved the images and their metadata, and loaded the next images. Keyboard controls and automatic directory changes reduced the repeated clicking and window switching around the actual framing decision.</p>
+      <figure>
+        <a href="cropping-tool-annotated.webp"><img src="cropping-tool-annotated.webp" width="2400" height="1716" loading="lazy" alt="The three-image cropper with callouts identifying the large center handle for a continuous drag with locked aspect ratio, and Enter to submit the batch."></a>
+        <figcaption>My actual cropping tool, displaying generated sample photographs.</figcaption>
+      </figure>
+    </section>
 
-  <section id="throughput">
-    <h2>Measured throughput</h2>
-    <p>The recorded one-hour run produced <span class="hl">391 crops: 6.5 per minute</span>, averaging <span class="hl">9.2 seconds of elapsed run time per completed crop</span>. That interval also included reviewing and rejecting other candidates, so the figure includes more than the crop gesture alone.</p>
-    <p>This measures the cropping stage after version selection. It is not a timing measurement for all 128,200 source images, and the assignment totals include work performed as the tools evolved.</p>
-  </section>
+    <section id="reliable">
+      <h2>Keep the batch position reliable</h2>
+      <p>Production use exposed a concrete problem: moving between directories could produce blank image panels. I reported the failure while working through real batches.</p>
+      <p>The software tracked the batch position in more than one place. The fixes established one authoritative record of that position and removed the duplicate step that advanced it. I then checked the behavior through continued production work; directory transitions became unobtrusive enough that I could keep processing without noticing them.</p>
+      <p>Reliability also depended on keeping each image connected to its metadata. A shared file-moving utility gathered the image's companion files before moving them. Group decision records retained the original alternatives and the selected filename, while operation logs recorded the movements. Those records supported checks for missing files or duplicates and made a decision traceable after files changed directories.</p>
+      <p>Unwanted images went to a staging area or Trash, and original archives provided a separate restoration source. No source images were permanently lost during the assignment.</p>
+    </section>
 
-  <section id="scale">
-    <h2>Why small reductions mattered</h2>
-    <p>Across 28,285 finished images, <span class="hl">if the workflow eliminated 30 seconds of repeated handling per image, that would amount to 236 hours</span>. At 10 seconds per image, it would amount to 79 hours. This illustrates the scale of the opportunity; it is not a measured before-and-after saving.</p>
-    <p>I could handle larger batches with much less repetitive effort, retain control of the visual decisions, and keep the work traceable and recoverable.</p>
-  </section>
+    <section id="throughput">
+      <h2>Measured throughput</h2>
+      <p>The recorded one-hour run produced <span class="hl">391 crops: 6.5 per minute</span>, averaging <span class="hl">9.2 seconds of elapsed run time per completed crop</span>. That interval also included reviewing and rejecting other candidates, so the figure includes more than the crop gesture alone.</p>
+      <p>This measures the cropping stage after version selection. It is not a timing measurement for all 128,200 source images, and the assignment totals include work performed as the tools evolved.</p>
+    </section>
 
-  <div class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></div>
+    <section id="scale">
+      <h2>Why small reductions mattered</h2>
+      <p>Across 28,285 finished images, <span class="hl">if the workflow eliminated 30 seconds of repeated handling per image, that would amount to 236 hours</span>. At 10 seconds per image, it would amount to 79 hours. This illustrates the scale of the opportunity; it is not a measured before-and-after saving.</p>
+      <p>I could handle larger batches with much less repetitive effort, retain control of the visual decisions, and keep the work traceable and recoverable.</p>
+    </section>
+  </article>
+
+  <footer class="foot">eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></footer>
 </main>
 </html>

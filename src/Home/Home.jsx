@@ -1,8 +1,21 @@
 import React, { useEffect } from 'react';
 import './Home.css';
 import { mount } from './intro';
+import { HallDefs, MemoryDoor, CaseDoor, GithubDoor, GalleryDoor, ShopDoor, CabinDoor } from './Doors';
+import { DOORS, doorName } from './hall.js';
 
-// The loading intro (a year thermometer, 1983 → 2026) hands off to the homepage.
+// The drawing that goes with each door in hall.js.
+const DRAWING = { memory: MemoryDoor, cases: CaseDoor, github: GithubDoor, gallery: GalleryDoor, shop: ShopDoor, cabin: CabinDoor };
+
+// Marks the one door being walked through (and unmarks the last one), so the page transition starts from it.
+function through(ev) {
+  const door = ev.target.closest('.door');
+  if (!door) return;
+  for (const last of ev.currentTarget.querySelectorAll('.door.through')) last.classList.remove('through');
+  door.classList.add('through');
+}
+
+// The loading intro (a year thermometer, 1983 → 2026) hands off to the homepage: a hall with six doors.
 // Markup is static; intro.js drives it by id, and its cleanup runs on unmount.
 export default function Home() {
   useEffect(() => {
@@ -41,29 +54,43 @@ export default function Home() {
 
       <canvas id="motes" aria-hidden="true" hidden></canvas>
       <section id="home" hidden>
-        <div className="hero">
-          <canvas id="buddy" width="512" height="512" aria-label="The character, grown up into 2026"></canvas>
-          <div>
+        <HallDefs />
+        <div className="top">
+          <header className="hello">
             <h1>Hi, I'm Erik.</h1>
             <p className="say">Sjaastad. Said “shaw-stad.”</p>
             <p>I love programming. Most of what I make started as a tool I wanted for my own work and kept growing. These days that's mostly AI tooling.</p>
+          </header>
+          <dl className="machines" aria-label="Machines">
+            <div><dt>1983</dt><dd><b>TI-99/4A.</b> Dad's. TV for a monitor, phone in the coupler.</dd></div>
+            <div><dt>1992</dt><dd><b>Macintosh Classic.</b> UW. Papers, mostly.</dd></div>
+            <div><dt>1990s</dt><dd><b>Apple IIc.</b> Mom's, with the color monitor.</dd></div>
+            <div><dt>2026</dt><dd><b>A lot of agents.</b> Still writing tools for myself.</dd></div>
+          </dl>
+        </div>
+
+        {/* The hall: the character on the left, then six doors. Each door is one link; its caption sits under the floor. */}
+        <nav className="hall" aria-label="Six doors" onClick={through}>
+          <div className="host">
+            <div className="art">
+              <p className="pick" aria-hidden="true">Six doors.<br />Pick one.</p>
+              <canvas id="buddy" width="512" height="512" aria-label="The character, grown up into 2026"></canvas>
+            </div>
           </div>
-        </div>
-        <nav className="paths" aria-label="Choose a path">
-          <a className="path" id="memoryLink" href="/memory/"><b>Inside my AI's memory →</b><small>fly through 2,600 things my agents remember</small></a>
-          <a className="path" href="/case-studies/"><b>Case studies →</b><small>agents managing agents, SEO run like client work</small></a>
-          <a className="path" href="https://github.com/eriksjaastad"><b>GitHub →</b><small>github.com/eriksjaastad</small></a>
-          <a className="path" href="/gallery/"><b>Art gallery →</b><small>walk my paintings and drawings in three different spaces</small></a>
-          <a className="path" href="/websites/"><b>Websites →</b><small>sites I built and run</small></a>
-          <a className="path" href="/flashback/outside/"><b>Flashback →</b><small>a '90s cabin full of the old stuff</small></a>
+          {DOORS.map(({ id, href, name, about, light }) => {
+            const Door = DRAWING[id], [host, path] = about.split('/');
+            return (
+              <a className={`door ${id}`} id={id === 'memory' ? 'memoryLink' : undefined} href={href} key={id} style={{ '--light': light, '--door': doorName(id) }}>
+                <span className="art"><Door /></span>
+                <b>{name}</b>
+                {/* an address may wrap after its slash, nowhere else */}
+                {path ? <small className="url">{host}/<wbr />{path}</small> : <small>{about}</small>}
+              </a>
+            );
+          })}
         </nav>
-        <div className="timeline" aria-label="Machines">
-          <div><b>1983 · TI-99/4A</b>Dad's. TV for a monitor, phone in the coupler.</div>
-          <div><b>1992 · Macintosh Classic</b>UW. Papers, mostly.</div>
-          <div><b>1990s · Apple IIc</b>Mom's, with the color monitor.</div>
-          <div><b>2026 · a lot of agents</b>Still writing tools for myself.</div>
-        </div>
-        <div className="foot"><span>eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></span><button className="ghost" id="replay">Replay intro</button></div>
+
+        <div className="foot"><span>eriksjaastad.com · 2026 · <a href="https://www.linkedin.com/in/erikodin/">LinkedIn</a></span><button className="replay" id="replay">Replay the intro</button></div>
       </section>
     </>
   );

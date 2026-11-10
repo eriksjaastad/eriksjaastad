@@ -6,26 +6,26 @@
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/site.css">
 <style>
-/* One '90s cabin you walk round like /gallery/. Chrome floats in the corners. */
+/* One '90s cabin you walk round like /gallery/. The wall label and key hints come from /site.css; this page places them. */
 :root {
-  --bg: #120f0d; --ink: #f3ebe4; --muted: #a39484; --neon: #ff6a00; --line: #3b322b;
-  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #120f0d; --ink: #f3ebe4; --muted: #a39484; --line: #3b322b;
   color-scheme: dark;
 }
+/* the door in the hall that leads here: the page grows out of it (see /site.css) */
+:root { view-transition-name: door-cabin; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; }
 #stage { position: fixed; inset: 0; } #stage canvas { display: block; touch-action: none; }
 .chrome { position: fixed; z-index: 2; }
-#title { top: max(16px, env(safe-area-inset-top)); left: 18px; pointer-events: none; }
-#title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; } #title p { margin: 2px 0 0; font: 12px var(--mono); color: var(--muted); }
-#home { top: max(14px, env(safe-area-inset-top)); right: 16px; font-size: 14px; color: var(--ink); text-decoration: none; background: rgba(18,15,13,.6); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
-#home:hover { border-color: var(--neon); color: var(--neon); }
-#hint { left: 18px; bottom: max(16px, env(safe-area-inset-bottom)); font: 12px var(--mono); color: var(--muted); pointer-events: none; transition: opacity .4s; }
+#title { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+#hint { left: max(14px, env(safe-area-inset-left)); right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); pointer-events: none; transition: opacity .4s; }
 #caption { left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 12px); opacity: 0; transition: opacity .4s, transform .4s; pointer-events: none; text-align: center; width: min(92vw, 520px); }
-#caption b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.02em; } #caption span { font: 13px var(--mono); color: #ffc46b; }
+#caption b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.02em; text-shadow: 0 2px 14px rgba(0,0,0,.8); } #caption span { font: 13px var(--mono); color: var(--amber); text-shadow: 0 1px 8px rgba(0,0,0,.9); }
 body.focused #caption { opacity: 1; transform: translate(-50%, 0); } body.focused #hint { opacity: 0; }  /* both sit at the bottom */
 #hint .touch { display: none; } @media (hover: none) { #hint .desk { display: none; } #hint .touch { display: inline; } }
 /* reading an album: the book fills the screen over the room; a photo opens over the book */
@@ -49,7 +49,7 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 .page img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
 .scrap .page button:nth-child(2n) { border-radius: 50% 50% 8px 8px; } /* scrapbook cut-outs */
 #book nav { display: flex; gap: 10px; }
-#book nav button, #book .close, #photo .close { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+#book nav button, #book .close, #photo .close { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 4px; padding: 7px 16px; cursor: pointer; }
 #book nav button:disabled { opacity: .35; cursor: default; }
 #book nav button:hover:not(:disabled), #book .close:hover, #photo .close:hover { border-color: var(--neon); color: var(--neon); }
 /* the photo dialog scrolls, and auto margins centre the print only while it fits, so its top is always reachable */
@@ -86,19 +86,18 @@ dialog::backdrop { background: rgba(12,9,7,.84); backdrop-filter: blur(4px); }
 #boombox .counter { font: 600 13px var(--mono); background: #111; color: #e8e8e8; padding: 2px 8px; border-radius: 3px; letter-spacing: .15em; }
 #boombox .close { margin-top: 10px; }
 @media (max-width: 640px) { #boombox .body { grid-template-columns: 1fr 1fr; } #boombox .mid { grid-column: 1 / -1; grid-row: 1; } }
-#dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+#dial .hang { font: 14px var(--display); color: var(--ink); background: #8c1c1c; border: 1px solid #c0392b; border-radius: 4px; padding: 8px 18px; cursor: pointer; }
 /* holding a thing from the counter: it fills the screen; drag to turn it over, tap it (or the button) to change it */
 #hold .wrap { display: grid; justify-items: center; gap: 10px; }
 #hold canvas { width: min(92vw, 70dvh, 560px); height: min(92vw, 70dvh, 560px); touch-action: none; cursor: grab; display: block; }
 #hold .note { font: 13px var(--mono); color: #ffc46b; } #hold nav { display: flex; gap: 10px; }
-#hold button { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+#hold button { font: 14px var(--display); color: var(--ink); background: rgba(18,15,13,.7); border: 1px solid var(--line); border-radius: 4px; padding: 7px 16px; cursor: pointer; }
 #hold button:hover { border-color: var(--neon); color: var(--neon); }
 @media (max-width: 700px) { .page { padding: 16px; gap: 10px; } }
 </style>
 <div id="stage"></div>
-<header id="title" class="chrome"><h1>Flashback</h1><p>a cabin full of the '90s · still moving in</p></header>
-<a id="home" class="chrome" href="/">Home</a>
-<div id="hint" class="chrome"><span class="desk">drag to look · scroll or WASD to walk · right-drag to slide · Q/E to turn · click something to walk to it</span><span class="touch">drag to look · pinch to walk · tap something</span></div>
+<header id="title" class="chrome label plaque"><a class="home" href="/" aria-label="Home"><svg viewBox="76 16 360 404" aria-hidden="true"><path d="M256 92Q262 60 282 44" fill="none" stroke="#e0795c" stroke-width="9" stroke-linecap="round"/><circle class="bulb" cx="284" cy="40" r="15" fill="#ffc46b"/><rect x="178" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="294" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="92" y="88" width="328" height="296" rx="112" fill="#ff906b"/><rect x="140" y="136" width="232" height="172" rx="70" fill="#1d1b28"/><ellipse class="eye" cx="214" cy="212" rx="17" ry="26" fill="#fff"/><ellipse class="eye" cx="298" cy="212" rx="17" ry="26" fill="#fff"/><path d="M271.6 267.6A22 22 0 0 1 240.4 267.6" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>← home</a><h1>Flashback</h1><p>a cabin full of the '90s · still moving in</p></header>
+<div id="hint" class="chrome keys"><span class="desk"><span><b>drag</b>look</span><span><b>scroll</b><b>WASD</b>walk</span><span><b>right-drag</b>slide</span><span><b>Q</b><b>E</b>turn</span><span><b>click</b>something to walk to it</span></span><span class="touch"><span><b>drag</b>look</span><span><b>pinch</b>walk</span><span><b>tap</b>something</span></span></div>
 <div id="caption" class="chrome" aria-live="polite"><b></b><span></span></div>
 <dialog id="book" aria-labelledby="bookTitle">
   <div class="wrap">

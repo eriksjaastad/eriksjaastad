@@ -18,21 +18,21 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/site.css">
 <style>
-/* Layout: one full-bleed WebGL room; chrome floats in the corners, a card slides in on the right (bottom sheet on phones). */
+/* Layout: one full-bleed WebGL room; the wall label and tabs (from /site.css) float in the top corners, a card slides in on the right (bottom sheet on phones). */
 :root {
   --bg: #151417;          /* dark gray room */
   --panel: #1f1d21;
   --ink: #f3ebe4;
   --muted: #9a8f88;
   --coral: #ff9b7d;       /* the character's coral */
-  --neon: #ff6a00;        /* hover + project glow */
   --line: #3a3539;
-  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   color-scheme: dark;
 }
+/* the door in the hall that leads here: the page grows out of it (see /site.css) */
+:root { view-transition-name: door-memory; }
 html, body { height: 100%; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--display); overflow: hidden; }
@@ -45,20 +45,16 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
 /* floating chrome */
 .chrome { position: fixed; z-index: 4; opacity: 0; transition: opacity .8s; pointer-events: none; }
 .ready .chrome { opacity: 1; pointer-events: auto; }
-#topbar { top: calc(14px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+#topbar { top: calc(12px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
   display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; pointer-events: none; }
 #topbar > * { pointer-events: auto; }
-.title { display: grid; gap: 2px; }
-.title h2 { margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; }
-.title small { font-family: var(--mono); font-size: .7rem; color: var(--muted); letter-spacing: .03em; }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.pill { background: rgba(31,29,33,.82); border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font-size: .8rem; backdrop-filter: blur(6px); color: inherit; text-decoration: none; }
+.pill { background: rgba(31,29,33,.82); border: 1px solid var(--line); border-radius: 4px; padding: 7px 13px; font-size: .8rem; backdrop-filter: blur(6px); color: inherit; text-decoration: none; }
 .pill:hover { border-color: var(--neon); color: #fff; }
 
-#list { top: calc(64px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); width: 210px; max-height: calc(100% - 270px);
-  overflow-y: auto; display: grid; gap: 2px; padding: 8px; background: rgba(21,20,23,.72); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(6px); }
+#list { top: calc(92px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); width: 210px; max-height: calc(100% - 298px);
+  overflow-y: auto; display: grid; gap: 2px; padding: 8px; background: rgba(17,17,21,.72); border-radius: 4px; box-shadow: 0 0 0 1px rgba(255,255,255,.07); backdrop-filter: blur(6px); }
 #list[hidden] { display: none !important; }
-#list button { background: none; border: 0; text-align: left; padding: 5px 8px; border-radius: 6px; font-family: var(--mono); font-size: .74rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+#list button { background: none; border: 0; text-align: left; padding: 5px 8px; border-radius: 3px; font-family: var(--mono); font-size: .74rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 #list button::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--neon); opacity: .5; flex: none; }
 #list button:hover, #list button.on { color: var(--ink); background: rgba(255,106,0,.1); }
 #list button.on::before { opacity: 1; box-shadow: 0 0 8px var(--neon); }
@@ -67,7 +63,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
   display: grid; gap: 4px; pointer-events: none; }
 #legend div { display: flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
 #legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-#hint { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); font-family: var(--mono); font-size: .68rem; color: var(--muted); text-align: right; line-height: 1.6; pointer-events: none; }
+#hint { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); text-align: right; pointer-events: none; }
 
 /* labels + tooltip */
 #labels { position: fixed; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
@@ -79,19 +75,19 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
 #tip .k { font-family: var(--mono); font-size: .7rem; color: var(--muted); }
 
 /* project card */
-#card { position: fixed; z-index: 7; top: calc(64px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: 340px; max-height: calc(100% - 140px); overflow-y: auto;
-  background: rgba(27,25,29,.94); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 14px; backdrop-filter: blur(8px);
+#card { position: fixed; z-index: 7; top: calc(64px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: 340px; max-height: calc(100% - 140px); overflow-y: auto;
+  background: rgba(27,25,29,.94); border: 1px solid var(--line); border-radius: 6px; padding: 20px; display: grid; gap: 14px; backdrop-filter: blur(8px);
   transform: translateX(24px); opacity: 0; pointer-events: none; transition: transform .35s ease, opacity .35s ease; box-shadow: 0 0 60px -20px var(--neon); }
 #card.on { transform: none; opacity: 1; pointer-events: auto; }
 #card .eyebrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.status { font-family: var(--mono); font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.status { font-family: var(--mono); font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; border: 1px solid currentColor; }
 .status.daily { color: var(--neon); }
 .status.bench { color: var(--coral); }
 .status.other { color: var(--muted); }
 #card h3 { margin: 0; font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; overflow-wrap: anywhere; }
 #card p { margin: 0; line-height: 1.55; color: #ddd3cb; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font-family: var(--mono); font-size: .7rem; padding: 3px 8px; border-radius: 6px; background: rgba(255,155,125,.1); color: var(--coral); }
+.chip { font-family: var(--mono); font-size: .7rem; padding: 3px 8px; border-radius: 3px; background: rgba(255,155,125,.1); color: var(--coral); }
 .sub { font-family: var(--mono); font-size: .68rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
 .counts { font-family: var(--mono); font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.7; }
 .cardnav { display: flex; gap: 8px; }
@@ -109,8 +105,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
   #card { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); width: auto; max-height: 55%; transform: translateY(24px); }
   #legend { display: none; }
   #hint { left: max(16px, env(safe-area-inset-left, 0px)); text-align: left; }
-  #topbar { flex-direction: column; }
-  .btns { justify-content: flex-start; }
+  #topbar { flex-direction: column; gap: 8px; }
   .desk { display: none; }
 }
 @media (min-width: 721px) { .phone { display: none; } }
@@ -123,20 +118,16 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--neon); outline-
 
 
 <header id="topbar" class="chrome">
-  <div class="title">
-    <h2>Inside the memory</h2>
-    <small id="sub"></small>
-  </div>
-  <div class="btns">
-    <a class="pill" id="homeLink" href="/">Home</a>
-    <button class="pill" id="toggleList" type="button">Projects</button>
-    <button class="pill" id="overview" type="button">Zoom out</button>
-    <button class="pill" id="replay" type="button">Replay entrance</button>
+  <div class="label plaque"><a class="home" href="/" id="homeLink" aria-label="Home"><svg viewBox="76 16 360 404" aria-hidden="true"><path d="M256 92Q262 60 282 44" fill="none" stroke="#e0795c" stroke-width="9" stroke-linecap="round"/><circle class="bulb" cx="284" cy="40" r="15" fill="#ffc46b"/><rect x="178" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="294" y="368" width="40" height="46" rx="20" fill="#e0795c"/><rect x="92" y="88" width="328" height="296" rx="112" fill="#ff906b"/><rect x="140" y="136" width="232" height="172" rx="70" fill="#1d1b28"/><ellipse class="eye" cx="214" cy="212" rx="17" ry="26" fill="#fff"/><ellipse class="eye" cx="298" cy="212" rx="17" ry="26" fill="#fff"/><path d="M271.6 267.6A22 22 0 0 1 240.4 267.6" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>← home</a><h1>Inside the memory</h1><p id="sub"></p></div>
+  <div class="tabs">
+    <button id="toggleList" type="button">Projects</button>
+    <button id="overview" type="button">Zoom out</button>
+    <button id="replay" type="button">Replay entrance</button>
   </div>
 </header>
 <nav id="list" class="chrome" aria-label="Projects" hidden></nav>
 <div id="legend" class="chrome"></div>
-<div id="hint" class="chrome"><span class="desk">drag to look around · scroll to zoom<br>right-drag to slide · click a bright node</span><span class="phone">drag to turn · pinch to zoom · tap a bright node</span></div>
+<div id="hint" class="chrome keys"><span class="desk"><span><b>drag</b>look around</span><span><b>scroll</b>zoom</span><span><b>right-drag</b>slide</span><span><b>click</b>a bright node</span></span><span class="phone"><span><b>drag</b>turn</span><span><b>pinch</b>zoom</span><span><b>tap</b>a bright node</span></span></div>
 
 <aside id="card" aria-live="polite" inert>
   <div class="eyebrow"><span class="status" id="cStatus"></span><button class="x" id="cClose" type="button" aria-label="Close">×</button></div>
