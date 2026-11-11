@@ -73,6 +73,25 @@ test("reaching for a door turns its leaf into the room and lets its light out; t
   await page.context().close();
 });
 
+test("the machines on the wall run from the TI to the agents, beside the greeting on a desktop and under it on a phone", { timeout: 30000 }, async () => {
+  const edges = async page => {
+    await page.locator(".machines").waitFor();
+    return page.evaluate(() => Object.fromEntries([".hello", ".machines"].map(selector => [selector.slice(1), document.querySelector(selector).getBoundingClientRect().toJSON()])));
+  };
+  const desk = await open("/");
+  const wide = await edges(desk);
+  assert.deepEqual(await desk.locator(".machines dd b").allTextContents(), ["TI-99/4A.", "Macintosh Classic.", "Apple IIc.", "Compaq.", "Dell XPS.", "MacBooks.", "A lot of agents."]);
+  assert.ok(wide.machines.left >= wide.hello.right, "beside the greeting");
+  assert.ok(wide.machines.height <= wide.hello.height, "and no taller than it, so the list doesn't push the doors down the page");
+  await desk.context().close();
+
+  const phone = await open("/", { width: 390, height: 844 });
+  const narrow = await edges(phone);
+  assert.ok(narrow.machines.top >= narrow.hello.bottom, "under the greeting");
+  assert.ok(narrow.machines.left >= 0 && narrow.machines.right <= 390, "and inside the window");
+  await phone.context().close();
+});
+
 for (const width of [1440, 390]) {
   test(`at ${width}px wide the way home stands on the same spot in the window's top-left corner on every page`, { timeout: 60000 }, async () => {
     const spots = {};

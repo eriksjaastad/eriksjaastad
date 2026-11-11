@@ -62,9 +62,12 @@ export default function Home() {
             <p>I love programming. Most of what I make started as a tool I wanted for my own work and kept growing. These days that's mostly AI tooling.</p>
           </header>
           <dl className="machines" aria-label="Machines">
-            <div><dt>1983</dt><dd><b>TI-99/4A.</b> Dad's. TV for a monitor, phone in the coupler.</dd></div>
-            <div><dt>1992</dt><dd><b>Macintosh Classic.</b> UW. Papers, mostly.</dd></div>
-            <div><dt>1990s</dt><dd><b>Apple IIc.</b> Mom's, with the color monitor.</dd></div>
+            <div><dt>1983</dt><dd><b>TI-99/4A.</b> Dad's. TV for a monitor, phone modem.</dd></div>
+            <div><dt>1992</dt><dd><b>Macintosh Classic.</b> Fancy word processor.</dd></div>
+            <div><dt>1990s</dt><dd><b>Apple IIc.</b> Color monitor.</dd></div>
+            <div><dt>1998</dt><dd><b>Compaq.</b> Forsaken and Lara Croft.</dd></div>
+            <div><dt>2000s</dt><dd><b>Dell XPS.</b> Started Logic Designs.</dd></div>
+            <div><dt>2014</dt><dd><b>MacBooks.</b> And back to Mac.</dd></div>
             <div><dt>2026</dt><dd><b>A lot of agents.</b> Still writing tools for myself.</dd></div>
           </dl>
         </div>
