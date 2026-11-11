@@ -80,7 +80,7 @@ test("the machines on the wall run from the TI to the agents, beside the greetin
   };
   const desk = await open("/");
   const wide = await edges(desk);
-  assert.deepEqual(await desk.locator(".machines dd b").allTextContents(), ["TI-99/4A.", "Macintosh Classic.", "Apple IIc.", "Compaq.", "Dell XPS.", "MacBooks.", "A lot of agents."]);
+  assert.deepEqual(await desk.locator(".machines dd b").allTextContents(), ["TI-99/4A.", "Macintosh Classic.", "Apple IIc.", "Quantex.", "Dell XPS.", "MacBooks.", "A lot of agents."]);
   assert.ok(wide.machines.left >= wide.hello.right, "beside the greeting");
   assert.ok(wide.machines.height <= wide.hello.height, "and no taller than it, so the list doesn't push the doors down the page");
   await desk.context().close();
